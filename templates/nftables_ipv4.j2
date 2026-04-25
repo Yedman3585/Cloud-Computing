@@ -1,0 +1,19 @@
+table ip filter {
+    chain input {
+        type filter hook input priority 0;
+        policy drop;
+
+        ct state established,related accept
+        iif lo accept
+
+        {% for port in allowed_ports %}
+        tcp dport {{ port }} accept
+        {% endfor %}
+
+        {% for ip in allowed_ips %}
+        ip saddr {{ ip }} accept
+        {% endfor %}
+
+        ip protocol icmp accept
+    }
+}
