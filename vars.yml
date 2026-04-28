@@ -6,3 +6,7 @@ allowed_ports:
 allowed_ips:
   - 192.168.64.0/24
   - 10.0.0.0/8
+
+allowed_ipv6:
+  - ::1/128
+  - fd00::/8
