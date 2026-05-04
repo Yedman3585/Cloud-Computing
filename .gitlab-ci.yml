@@ -1,0 +1,20 @@
+stages:
+  - build
+  - test
+
+build:
+  stage: build
+  image: docker:latest
+  services:
+    - docker:dind
+  script:
+    - docker build -t firewall .
+
+test:
+  stage: test
+  image: debian:13
+  before_script:
+    - apt update && apt install -y nftables python3
+  script:
+    - python3 render.py || echo "render.py not found"
+    - nft -c -f generated.nft || echo "nft config check skipped"

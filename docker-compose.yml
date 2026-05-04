@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  fw1:
+    build: .
+    container_name: fw1
+    privileged: true
+
+  fw2:
+    build: .
+    container_name: fw2
+    privileged: true
+
+  fw3:
+    build: .
+    container_name: fw3
+    privileged: true
+
+  client:
+    image: nginx
+    container_name: client
+
+  server:
+    image: nginx
+    container_name: server
