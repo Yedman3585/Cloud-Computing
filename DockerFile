@@ -1,0 +1,10 @@
+FROM debian:13
+
+RUN apt update && apt install -y \
+    nftables python3 python3-pip ansible \
+    tcpdump iftop cbm iproute2 curl
+
+WORKDIR /app
+COPY . /app
+
+CMD ["bash"]
