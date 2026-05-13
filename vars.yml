@@ -10,3 +10,7 @@ allowed_ips:
 allowed_ipv6:
   - ::1/128
   - fd00::/8
+
+hosts:
+  - localhost
+  - debian

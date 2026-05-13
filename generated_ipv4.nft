@@ -1,3 +1,4 @@
+flush ruleset
 table ip filter {
     chain input {
         type filter hook input priority 0;
@@ -5,7 +6,17 @@ table ip filter {
 
         ct state established,related accept
         iif lo accept
-
+	
+	
+	
+	ip saddr 127.0.0.1 accept comment "localhost"
+	
+	
+	
+	ip saddr 127.0.1.1 accept comment "debian"
+	
+	
+	
         
         tcp dport 22 accept
         
