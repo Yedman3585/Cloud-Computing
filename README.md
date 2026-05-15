@@ -31,8 +31,10 @@ The entire firewall is configured and managed exclusively through **Ansible**, e
 │   ├── inventory/
 │   ├── roles/
 │   │   ├── common/
-│   │   ├── firewall/         
-│   │   └── keepalived/
+│   │   ├── nftables/        
+│   │   ├── keepalived/      
+│   │   ├── conntrackd/      
+│   │   └── monitoring/
 │   ├── playbooks/
 │   └── group_vars/
 ├── docker/                   # Local test environment
