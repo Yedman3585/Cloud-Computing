@@ -1,0 +1,36 @@
+---
+common_packages:
+  - nftables
+  - keepalived
+  - conntrackd
+  - python3
+  - python3-apt
+  - python3-pip
+  - python3-yaml
+  - python3-jinja2
+  - rsyslog
+  - iproute2
+  - iputils-ping
+  - procps
+  - ca-certificates
+
+common_diagnostic_packages:
+  - tcpdump
+  - iftop
+  - cbm
+
+firewall_nftables_conf_path: /etc/nftables.conf
+firewall_nftables_apply_rules: true
+
+keepalived_interface: eth0
+keepalived_virtual_router_id: 55
+keepalived_advert_int: 1
+keepalived_auth_pass: "{{ vault_keepalived_auth_pass | default('fwha2026') }}"
+keepalived_vip_ipv4: 10.0.0.100/24
+keepalived_vip_ipv6: fd00:5::100/64
+
+conntrackd_interface: "{{ keepalived_interface }}"
+conntrackd_sync_mode: FTFW
+conntrackd_multicast_ipv4: 225.0.0.50
+conntrackd_multicast_ipv6: ff02::50
+conntrackd_port: 3780

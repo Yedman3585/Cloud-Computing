@@ -1,7 +1,7 @@
 from jinja2 import Environment, FileSystemLoader
 import yaml
 
-env = Environment(loader=FileSystemLoader('templates'))
+env = Environment(loader=FileSystemLoader('ansible/roles/firewall/templates'))
 
 with open('vars.yml') as f:
     data = yaml.safe_load(f)

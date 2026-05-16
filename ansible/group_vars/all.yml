@@ -1,0 +1,75 @@
+---
+firewall_required_node_count: 3
+firewall_default_policy: drop
+
+firewall_objects:
+  admin_net:
+    ipv4:
+      - 192.168.56.0/24
+    ipv6:
+      - fd00:56::/64
+  client_net:
+    ipv4:
+      - 10.10.10.0/24
+    ipv6:
+      - fd00:10::/64
+  web_backend:
+    ipv4:
+      - 10.20.20.10/32
+    ipv6:
+      - fd00:20::10/128
+  firewall_cluster:
+    ipv4:
+      - 10.0.0.100/32
+    ipv6:
+      - fd00:5::100/128
+  firewall_peer_net:
+    ipv4:
+      - 10.0.0.0/24
+    ipv6:
+      - fd00:5::/64
+
+firewall_rules:
+  - name: allow_ssh_from_admin
+    chain: input
+    source: admin_net
+    destination: any
+    protocol: tcp
+    ports:
+      - 22
+    action: accept
+  - name: allow_keepalived_vrrp
+    chain: input
+    source: firewall_peer_net
+    destination: any
+    protocol: vrrp
+    action: accept
+  - name: allow_conntrackd_sync
+    chain: input
+    source: firewall_peer_net
+    destination: any
+    protocol: udp
+    ports:
+      - 3780
+    action: accept
+  - name: allow_client_http_to_backend
+    chain: forward
+    source: client_net
+    destination: web_backend
+    protocol: tcp
+    ports:
+      - 80
+      - 443
+    action: accept
+  - name: allow_ipv4_icmp
+    chain: input
+    source: any
+    destination: any
+    protocol: icmp
+    action: accept
+  - name: allow_ipv6_icmp
+    chain: input
+    source: any
+    destination: any
+    protocol: icmpv6
+    action: accept

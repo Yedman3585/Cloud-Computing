@@ -1,35 +1,45 @@
 ---
-- name: Create
+- name: Create Molecule Docker containers
   hosts: localhost
   connection: local
   gather_facts: false
-  # no_log: "{{ molecule_no_log }}"
   tasks:
-    # TODO: Developer must implement and populate 'server' variable
+    - name: Start Molecule instance containers
+      community.docker.docker_container:
+        name: "{{ item.name }}"
+        image: "{{ item.image }}"
+        command: "{{ item.command | default('sleep infinity') }}"
+        privileged: "{{ item.privileged | default(true) }}"
+        volumes: "{{ item.volumes | default([]) }}"
+        detach: true
+        state: started
+        recreate: true
+        pull: missing
+      loop: "{{ molecule_yml.platforms }}"
+      register: firewall_molecule_containers
 
-    - name: Create instance config
-      when: server.changed | default(false) | bool  # noqa no-handler
-      block:
-        - name: Populate instance config dict  # noqa jinja
-          ansible.builtin.set_fact:
-            instance_conf_dict: {}
-            # instance': "{{ }}",
-            # address': "{{ }}",
-            # user': "{{ }}",
-            # port': "{{ }}",
-            # 'identity_file': "{{ }}", }
-          with_items: "{{ server.results }}"
-          register: instance_config_dict
+    - name: Build Molecule instance config
+      ansible.builtin.set_fact:
+        firewall_instance_conf: >-
+          {{
+            firewall_instance_conf | default([]) + [
+              {
+                'instance': item.item.name,
+                'address': item.item.name,
+                'user': 'root',
+                'port': 0,
+                'identity_file': '',
+                'connection': 'community.docker.docker'
+              }
+            ]
+          }}
+      loop: "{{ firewall_molecule_containers.results }}"
 
-        - name: Convert instance config dict to a list
-          ansible.builtin.set_fact:
-            instance_conf: "{{ instance_config_dict.results | map(attribute='ansible_facts.instance_conf_dict') | list }}"
+    - name: Write Molecule instance config
+      ansible.builtin.copy:
+        content: |
+          # Molecule managed
 
-        - name: Dump instance config
-          ansible.builtin.copy:
-            content: |
-              # Molecule managed
-
-              {{ instance_conf | to_json | from_json | to_yaml }}
-            dest: "{{ molecule_instance_config }}"
-            mode: "0600"
+          {{ firewall_instance_conf | default([]) | to_json | from_json | to_yaml }}
+        dest: "{{ molecule_instance_config }}"
+        mode: "0600"

@@ -1,0 +1,29 @@
+global_defs {
+    router_id {{ inventory_hostname }}
+    enable_script_security
+}
+
+vrrp_instance VI_1 {
+    state BACKUP
+    interface {{ keepalived_interface }}
+    virtual_router_id {{ keepalived_virtual_router_id }}
+    priority {{ keepalived_priority }}
+    advert_int {{ keepalived_advert_int }}
+
+    unicast_src_ip {{ ipv4_addr }}
+    unicast_peer {
+{% for peer in groups['firewalls'] | default([]) if peer != inventory_hostname %}
+        {{ hostvars[peer].ipv4_addr }}
+{% endfor %}
+    }
+
+    authentication {
+        auth_type PASS
+        auth_pass {{ keepalived_auth_pass }}
+    }
+
+    virtual_ipaddress {
+        {{ keepalived_vip_ipv4 }} dev {{ keepalived_interface }}
+        {{ keepalived_vip_ipv6 }} dev {{ keepalived_interface }}
+    }
+}

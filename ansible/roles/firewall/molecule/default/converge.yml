@@ -1,10 +1,54 @@
 ---
-# Purpose: bring the instance to the desired state by running the role under test.
-# Molecule calls this playbook with `molecule converge`.
-- name: Converge
+- name: Converge firewall role
   hosts: all
-  gather_facts: true # Disable if your role does not rely on facts
+  gather_facts: true
+  vars:
+    firewall_nftables_validate_rules: false
+    firewall_nftables_apply_rules: false
+    firewall_nftables_manage_service: false
+    firewall_default_policy: drop
+    firewall_objects:
+      molecule_admin:
+        ipv4:
+          - 192.0.2.10/32
+        ipv6:
+          - 2001:db8:10::10/128
+      molecule_backend:
+        ipv4:
+          - 198.51.100.20/32
+        ipv6:
+          - 2001:db8:20::20/128
+    firewall_rules:
+      - name: allow_molecule_ssh
+        chain: input
+        source: molecule_admin
+        destination: any
+        protocol: tcp
+        ports:
+          - 22
+        action: accept
+      - name: allow_molecule_http_forward
+        chain: forward
+        source: molecule_admin
+        destination: molecule_backend
+        protocol: tcp
+        ports:
+          - 80
+          - 443
+        action: accept
+      - name: allow_molecule_ipv4_icmp
+        chain: input
+        source: any
+        destination: any
+        protocol: icmp
+        action: accept
+      - name: allow_molecule_ipv6_icmp
+        chain: input
+        source: any
+        destination: any
+        protocol: icmpv6
+        action: accept
   tasks:
-    - name: Apply role under test
+    - name: Apply firewall role under test
       ansible.builtin.include_role:
-        name: yournamespace.yourcollection.yourrole
+        name: firewall

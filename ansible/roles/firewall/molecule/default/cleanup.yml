@@ -1,0 +1,9 @@
+---
+- name: Cleanup Molecule firewall scenario
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: No cleanup actions are required
+      ansible.builtin.debug:
+        msg: "Molecule cleanup completed."

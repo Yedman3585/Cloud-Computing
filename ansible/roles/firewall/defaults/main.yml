@@ -1,0 +1,8 @@
+---
+firewall_nftables_conf_path: /etc/nftables.conf
+firewall_nftables_validate_rules: true
+firewall_nftables_apply_rules: true
+firewall_nftables_manage_service: true
+firewall_default_policy: drop
+firewall_objects: {}
+firewall_rules: []

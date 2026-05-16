@@ -1,0 +1,17 @@
+---
+- name: Render keepalived VRRP configuration
+  become: true
+  ansible.builtin.template:
+    src: keepalived.conf.j2
+    dest: /etc/keepalived/keepalived.conf
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart keepalived
+
+- name: Ensure keepalived is enabled and running
+  become: true
+  ansible.builtin.service:
+    name: keepalived
+    state: started
+    enabled: true

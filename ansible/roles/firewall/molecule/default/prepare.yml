@@ -1,0 +1,13 @@
+---
+- name: Prepare Debian container for Ansible
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Bootstrap Python and firewall packages
+      ansible.builtin.raw: |
+        set -e
+        export DEBIAN_FRONTEND=noninteractive
+        apt-get update
+        apt-get install -y python3 sudo nftables iproute2 procps
+        mkdir -p /tmp/ansible
+      changed_when: false

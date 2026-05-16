@@ -1,0 +1,14 @@
+---
+- name: Install base firewall and diagnostic packages
+  become: true
+  ansible.builtin.apt:
+    name: "{{ common_packages + common_diagnostic_packages }}"
+    state: present
+    update_cache: true
+
+- name: Ensure rsyslog is enabled and running
+  become: true
+  ansible.builtin.service:
+    name: rsyslog
+    state: started
+    enabled: true

@@ -1,0 +1,16 @@
+---
+profile: production
+offline: true
+
+exclude_paths:
+  - .git/
+  - .venv/
+  - .venv_linux/
+  - .cache/
+  - .molecule/
+  - "**/__pycache__/"
+  - "ansible/roles/*/molecule/*/.molecule/"
+
+warn_list:
+  - experimental
+

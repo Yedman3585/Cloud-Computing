@@ -1,0 +1,25 @@
+---
+- name: Render nftables ruleset
+  become: true
+  ansible.builtin.template:
+    src: nftables.conf.j2
+    dest: "{{ firewall_nftables_conf_path }}"
+    owner: root
+    group: root
+    mode: "0644"
+  register: firewall_nftables_template_result
+
+- name: Validate and apply nftables ruleset
+  become: true
+  nftables_apply:
+    rules_path: "{{ firewall_nftables_conf_path }}"
+    apply: "{{ firewall_nftables_apply_rules | bool and firewall_nftables_template_result.changed | bool }}"
+  when: firewall_nftables_validate_rules | bool or firewall_nftables_apply_rules | bool
+
+- name: Ensure nftables service is enabled and running
+  become: true
+  ansible.builtin.service:
+    name: nftables
+    state: started
+    enabled: true
+  when: firewall_nftables_manage_service | bool

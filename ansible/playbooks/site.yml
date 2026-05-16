@@ -1,0 +1,22 @@
+---
+- name: Validate firewall inventory contract
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Validate firewall inventory and rule references
+      inventory_validate:
+        firewall_node_names: "{{ groups['firewalls'] | default([]) }}"
+        firewall_hostvars: "{{ hostvars }}"
+        firewall_objects: "{{ firewall_objects }}"
+        firewall_rules: "{{ firewall_rules }}"
+        required_firewall_count: "{{ firewall_required_node_count }}"
+      run_once: true
+
+- name: Configure scalable firewall nodes
+  hosts: firewalls
+  become: true
+  roles:
+    - common
+    - firewall
+    - keepalived
+    - conntrackd

@@ -1,0 +1,33 @@
+Sync {
+    Mode {{ conntrackd_sync_mode }} {
+        DisableExternalCache Off
+        CommitTimeout 180
+        PurgeTimeout 5
+    }
+
+    Multicast {
+        IPv4_address {{ conntrackd_multicast_ipv4 }}
+        IPv4_interface {{ ipv4_addr }}
+        IPv6_address {{ conntrackd_multicast_ipv6 }}
+        IPv6_interface {{ ipv6_addr }}
+        Interface {{ conntrackd_interface }}
+        Port {{ conntrackd_port }}
+        SndSocketBuffer 1249280
+        RcvSocketBuffer 1249280
+        Checksum on
+    }
+}
+
+General {
+    Nice -20
+    HashSize 32768
+    HashLimit 131072
+    LogFile on
+    Syslog on
+    LockFile /var/lock/conntrackd.lock
+
+    UNIX {
+        Path /var/run/conntrackd.ctl
+        Backlog 20
+    }
+}

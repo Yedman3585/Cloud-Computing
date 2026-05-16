@@ -1,0 +1,7 @@
+---
+keepalived_interface: eth0
+keepalived_virtual_router_id: 55
+keepalived_advert_int: 1
+keepalived_auth_pass: fwha2026
+keepalived_vip_ipv4: 10.0.0.100/24
+keepalived_vip_ipv6: fd00:5::100/64

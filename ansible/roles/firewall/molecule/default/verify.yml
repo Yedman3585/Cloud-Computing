@@ -5,6 +5,25 @@
   hosts: instance
   gather_facts: false # Quicker, if you do not need facts
   tasks:
-    - name: Assert something
+    - name: Check rendered nftables configuration exists
+      ansible.builtin.stat:
+        path: /etc/nftables.conf
+      register: firewall_nftables_conf
+
+    - name: Assert nftables configuration was created
       ansible.builtin.assert:
-        that: true
+        that:
+          - firewall_nftables_conf.stat.exists
+          - firewall_nftables_conf.stat.size > 0
+
+    - name: Read rendered nftables configuration
+      ansible.builtin.slurp:
+        path: /etc/nftables.conf
+      register: firewall_nftables_rendered
+
+    - name: Assert mock IPv4 and IPv6 rules rendered
+      ansible.builtin.assert:
+        that:
+          - "'molecule_admin_ipv4' in (firewall_nftables_rendered.content | b64decode)"
+          - "'molecule_admin_ipv6' in (firewall_nftables_rendered.content | b64decode)"
+          - "'allow_molecule_http_forward' in (firewall_nftables_rendered.content | b64decode)"

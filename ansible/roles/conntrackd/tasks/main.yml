@@ -1,0 +1,17 @@
+---
+- name: Render conntrackd synchronization configuration
+  become: true
+  ansible.builtin.template:
+    src: conntrackd.conf.j2
+    dest: /etc/conntrackd/conntrackd.conf
+    owner: root
+    group: root
+    mode: "0640"
+  notify: Restart conntrackd
+
+- name: Ensure conntrackd is enabled and running
+  become: true
+  ansible.builtin.service:
+    name: conntrackd
+    state: started
+    enabled: true
