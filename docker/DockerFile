@@ -1,0 +1,60 @@
+FROM debian:trixie-slim
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nftables \
+    keepalived \
+    conntrack \
+    conntrackd \
+    iproute2 \
+    iputils-ping \
+    iputils-arping \
+    curl \
+    wget \
+    net-tools \
+    tcpdump \
+    iftop \
+    cbm \
+    openssh-server \
+    openssh-client \
+    python3 \
+    python3-pip \
+    python3-venv \
+    supervisor \
+    procps \
+    vim \
+    less \
+    ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install --break-system-packages \
+    jinja2 \
+    pyyaml \
+    scapy \
+    pytest \
+    pytest-html \
+    paramiko \
+    requests
+
+RUN mkdir -p /var/run/sshd \
+    && echo 'root:firewall' | chpasswd \
+    && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
+    && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
+
+RUN echo 'net.ipv4.ip_forward=1'     >> /etc/sysctl.d/99-firewall.conf \
+    && echo 'net.ipv6.conf.all.forwarding=1' >> /etc/sysctl.d/99-firewall.conf
+
+RUN mkdir -p /etc/supervisor/conf.d
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+WORKDIR /app
+
+EXPOSE 22 80 443
+
+ENTRYPOINT ["/entrypoint.sh"]
+CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
