@@ -1,25 +1,318 @@
-version: '3.8'
+version: "3.8"
+
+networks:
+  mgmt_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-mgmt
+    ipam:
+      config:
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1
+    enable_ipv6: false
+
+  frontend_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-frontend
+    ipam:
+      config:
+        - subnet: 172.21.0.0/24
+          gateway: 172.21.0.1
+
+  backend_net:
+    driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-backend
+    ipam:
+      config:
+        - subnet: 172.22.0.0/24
+          gateway: 172.22.0.1
+
+volumes:
+  fw1_logs:
+  fw2_logs:
+  fw3_logs:
+  test_results:
 
 services:
+
   fw1:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     container_name: fw1
+    hostname: fw1
     privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_MODULE
+    sysctls:
+      net.ipv4.ip_forward: 1
+      net.ipv6.conf.all.forwarding: 1
+      net.ipv4.ip_nonlocal_bind: 1
+    networks:
+      mgmt_net:
+        ipv4_address: 172.20.0.11
+      frontend_net:
+        ipv4_address: 172.21.0.11
+      backend_net:
+        ipv4_address: 172.22.0.11
+    volumes:
+      - fw1_logs:/var/log
+      - ./ansible:/ansible:ro
+      - ./tests:/tests:ro
+      - ./docker/entrypoint.sh:/entrypoint.sh:ro
+    environment:
+      - NODE_ROLE=master
+      - KEEPALIVED_PRIORITY=110
+      - VRRP_PEER1=172.20.0.12
+      - VRRP_PEER2=172.20.0.13
+      - VIRTUAL_IP=172.20.0.100
+    healthcheck:
+      test: ["CMD", "nft", "list", "ruleset"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
 
   fw2:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     container_name: fw2
+    hostname: fw2
     privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_MODULE
+    sysctls:
+      net.ipv4.ip_forward: 1
+      net.ipv6.conf.all.forwarding: 1
+      net.ipv4.ip_nonlocal_bind: 1
+    networks:
+      mgmt_net:
+        ipv4_address: 172.20.0.12
+      frontend_net:
+        ipv4_address: 172.21.0.12
+      backend_net:
+        ipv4_address: 172.22.0.12
+    volumes:
+      - fw2_logs:/var/log
+      - ./ansible:/ansible:ro
+      - ./tests:/tests:ro
+      - ./docker/entrypoint.sh:/entrypoint.sh:ro
+    environment:
+      - NODE_ROLE=backup
+      - KEEPALIVED_PRIORITY=100
+      - VRRP_PEER1=172.20.0.11
+      - VRRP_PEER2=172.20.0.13
+      - VIRTUAL_IP=172.20.0.100
+    healthcheck:
+      test: ["CMD", "nft", "list", "ruleset"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
 
   fw3:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     container_name: fw3
+    hostname: fw3
     privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - SYS_MODULE
+    sysctls:
+      net.ipv4.ip_forward: 1
+      net.ipv6.conf.all.forwarding: 1
+      net.ipv4.ip_nonlocal_bind: 1
+    networks:
+      mgmt_net:
+        ipv4_address: 172.20.0.13
+      frontend_net:
+        ipv4_address: 172.21.0.13
+      backend_net:
+        ipv4_address: 172.22.0.13
+    volumes:
+      - fw3_logs:/var/log
+      - ./ansible:/ansible:ro
+      - ./tests:/tests:ro
+      - ./docker/entrypoint.sh:/entrypoint.sh:ro
+    environment:
+      - NODE_ROLE=backup
+      - KEEPALIVED_PRIORITY=90
+      - VRRP_PEER1=172.20.0.11
+      - VRRP_PEER2=172.20.0.12
+      - VIRTUAL_IP=172.20.0.100
+    healthcheck:
+      test: ["CMD", "nft", "list", "ruleset"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+    restart: unless-stopped
 
-  client:
-    image: nginx
-    container_name: client
+  client1:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: client1
+    hostname: client1
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      frontend_net:
+        ipv4_address: 172.21.0.21
+    volumes:
+      - ./tests:/tests:ro
+      - test_results:/test_results
+    environment:
+      - FIREWALL_VIP=172.21.0.11
+      - FW1_IP=172.21.0.11
+      - FW2_IP=172.21.0.12
+      - FW3_IP=172.21.0.13
+    depends_on:
+      fw1:
+        condition: service_healthy
+    restart: unless-stopped
 
-  server:
-    image: nginx
-    container_name: server
+  client2:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: client2
+    hostname: client2
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      frontend_net:
+        ipv4_address: 172.21.0.22
+    volumes:
+      - ./tests:/tests:ro
+      - test_results:/test_results
+    environment:
+      - FIREWALL_VIP=172.21.0.11
+      - FW1_IP=172.21.0.11
+      - FW2_IP=172.21.0.12
+      - FW3_IP=172.21.0.13
+    depends_on:
+      fw1:
+        condition: service_healthy
+    restart: unless-stopped
+
+  client3:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: client3
+    hostname: client3
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      frontend_net:
+        ipv4_address: 172.21.0.23
+    volumes:
+      - ./tests:/tests:ro
+      - test_results:/test_results
+    environment:
+      - FIREWALL_VIP=172.21.0.11
+      - FW1_IP=172.21.0.11
+      - FW2_IP=172.21.0.12
+      - FW3_IP=172.21.0.13
+    depends_on:
+      fw1:
+        condition: service_healthy
+    restart: unless-stopped
+
+  server1:
+    image: nginx:alpine
+    container_name: server1
+    hostname: server1
+    networks:
+      backend_net:
+        ipv4_address: 172.22.0.31
+    volumes:
+      - ./docker/nginx/server1.html:/usr/share/nginx/html/index.html:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  server2:
+    image: nginx:alpine
+    container_name: server2
+    hostname: server2
+    networks:
+      backend_net:
+        ipv4_address: 172.22.0.32
+    volumes:
+      - ./docker/nginx/server2.html:/usr/share/nginx/html/index.html:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost/"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  test_runner:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: test_runner
+    hostname: test_runner
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      mgmt_net:
+        ipv4_address: 172.20.0.99
+      frontend_net:
+        ipv4_address: 172.21.0.99
+      backend_net:
+        ipv4_address: 172.22.0.99
+    volumes:
+      - ./tests:/tests
+      - test_results:/test_results
+    environment:
+      - FW1_MGMT_IP=172.20.0.11
+      - FW2_MGMT_IP=172.20.0.12
+      - FW3_MGMT_IP=172.20.0.13
+      - FW1_FRONTEND_IP=172.21.0.11
+      - FW2_FRONTEND_IP=172.21.0.12
+      - FW3_FRONTEND_IP=172.21.0.13
+      - VIRTUAL_IP=172.20.0.100
+      - SERVER1_IP=172.22.0.31
+      - SERVER2_IP=172.22.0.32
+      - REPORT_DIR=/test_results
+    depends_on:
+      fw1:
+        condition: service_healthy
+      fw2:
+        condition: service_healthy
+      fw3:
+        condition: service_healthy
+      server1:
+        condition: service_healthy
+      server2:
+        condition: service_healthy
+
+    profiles:
+      - testing
+    command: >
+      pytest /tests
+        --html=/test_results/report.html
+        --self-contained-html
+        -v
