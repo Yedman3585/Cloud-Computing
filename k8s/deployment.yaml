@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: firewall-deployment
+  labels:
+    app: firewall
+
+spec:
+  replicas: 3
+
+  selector:
+    matchLabels:
+      app: firewall
+
+  template:
+    metadata:
+      labels:
+        app: firewall
+
+    spec:
+      containers:
+        - name: firewall
+          image: firewall:latest
+          imagePullPolicy: Never
+
+          ports:
+            - containerPort: 22
+            - containerPort: 80
+            - containerPort: 443
+
+          securityContext:
+            privileged: true
