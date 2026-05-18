@@ -3,6 +3,7 @@ kind: Service
 
 metadata:
   name: firewall-service
+  namespace: firewall
 
 spec:
   selector:
@@ -11,6 +12,10 @@ spec:
   type: ClusterIP
 
   ports:
+    - name: ssh
+      port: 22
+      targetPort: 22
+
     - name: http
       port: 80
       targetPort: 80
