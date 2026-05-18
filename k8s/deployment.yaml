@@ -3,8 +3,7 @@ kind: Deployment
 
 metadata:
   name: firewall-deployment
-  labels:
-    app: firewall
+  namespace: firewall
 
 spec:
   replicas: 3
@@ -21,13 +20,35 @@ spec:
     spec:
       containers:
         - name: firewall
+
           image: firewall:latest
           imagePullPolicy: Never
+
+          securityContext:
+            privileged: true
 
           ports:
             - containerPort: 22
             - containerPort: 80
             - containerPort: 443
 
-          securityContext:
-            privileged: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+
+          livenessProbe:
+            tcpSocket:
+              port: 22
+            initialDelaySeconds: 20
+            periodSeconds: 10
+
+          readinessProbe:
+            tcpSocket:
+              port: 22
+            initialDelaySeconds: 10
+            periodSeconds: 5
