@@ -1,0 +1,11 @@
+---
+- name: Test nftables_rule module
+  hosts: localhost
+  become: yes
+  tasks:
+    - name: Allow port 8080
+      nftables_rule:
+        table: ip filter
+        chain: input
+        rule: "tcp dport 8080 accept"
+        state: present
