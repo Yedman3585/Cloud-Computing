@@ -1,14 +1,3 @@
-# =============================================================================
-# tests/test_failover.py
-# Task 5 — Python tests for Keepalived failover
-#
-# WHAT IS BEING TESTED:
-#   Keepalived uses VRRP protocol to elect one node as MASTER.
-#   The MASTER holds the Virtual IP (VIP = 172.20.0.100).
-#   When the MASTER fails, a BACKUP takes the VIP within seconds.
-#   These tests verify that entire process works correctly.
-# =============================================================================
-
 import time
 import pytest
 from conftest import (

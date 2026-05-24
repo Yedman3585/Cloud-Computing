@@ -1,13 +1,3 @@
-# =============================================================================
-# tests/conftest.py
-# Shared fixtures and helpers loaded automatically by pytest before every test.
-#
-# HOW PYTEST USES THIS FILE:
-#   pytest finds conftest.py automatically in the tests/ directory.
-#   Any function decorated with @pytest.fixture here is available to every
-#   test file without importing it — pytest injects it by name.
-# =============================================================================
-
 import os
 import time
 import subprocess

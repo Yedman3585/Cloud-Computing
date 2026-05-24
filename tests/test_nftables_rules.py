@@ -1,11 +1,3 @@
-# =============================================================================
-# tests/test_nftables_rules.py
-# Task 6 — Python tests for nftables rules
-#
-# Tests are grouped into classes. Each class tests one aspect.
-# @pytest.mark.parametrize runs the same test once per firewall node.
-# =============================================================================
-
 import pytest
 from conftest import (
     run_in_container, tcp_connect, ping,
