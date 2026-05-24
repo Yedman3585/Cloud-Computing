@@ -1,0 +1,28 @@
+# INSTALL (on your local machine, outside Docker):
+#   pip install -r requirements.txt
+#
+# Inside Docker containers these are already installed by the Dockerfile.
+# This file is here so CI can set up a local environment.
+
+# --- Test framework ---
+pytest>=7.4.0               # core test runner
+pytest-html>=4.0.0          # generates self-contained HTML test reports
+pytest-json-report>=1.5.0   # generates JSON output (used by generate_report.py)
+
+# --- Network packet crafting (Task 8 - scapy traffic generator) ---
+scapy>=2.5.0                # raw packet crafting for traffic generation tests
+                            # requires NET_RAW capability (set in docker-compose.yml)
+
+# --- HTTP / connectivity helpers ---
+requests>=2.31.0            # HTTP requests in tests (http_get helper in conftest.py)
+
+# --- Ansible integration (Task 9) ---
+ansible>=8.0.0              # run playbooks from CI / command line
+ansible-core>=2.15.0        # core Ansible engine
+
+# --- Template rendering (used by render.py for nftables rules) ---
+jinja2>=3.1.0               # template engine for nftables_ipv4.j2 / nftables_ipv6.j2
+pyyaml>=6.0.1               # parse vars.yml
+
+# --- SSH into containers (used by conftest.py helpers) ---
+paramiko>=3.3.0             # SSH client library for Pytho
