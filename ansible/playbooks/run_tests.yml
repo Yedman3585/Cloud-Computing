@@ -1,0 +1,109 @@
+- name: Run firewall test suite after deployment
+  hosts: localhost
+  gather_facts: false
+
+  vars:
+    report_dir:  "{{ playbook_dir }}/../../test_results"
+    test_dir:    "{{ playbook_dir }}/../../tests"
+    scripts_dir: "{{ playbook_dir }}/../../scripts"
+    health_log:  "{{ report_dir }}/health.json"
+    pytest_json: "{{ report_dir }}/pytest.json"
+    html_report: "{{ report_dir }}/report.html"
+
+    test_env:
+      FW1_MGMT_IP:     "172.20.0.11"
+      FW2_MGMT_IP:     "172.20.0.12"
+      FW3_MGMT_IP:     "172.20.0.13"
+      FW1_FRONTEND_IP: "172.21.0.11"
+      FW2_FRONTEND_IP: "172.21.0.12"
+      FW3_FRONTEND_IP: "172.21.0.13"
+      VIRTUAL_IP:      "172.20.0.100"
+      SERVER1_IP:      "172.22.0.31"
+      SERVER2_IP:      "172.22.0.32"
+      REPORT_DIR:      "{{ report_dir }}"
+
+  tasks:
+
+    - name: Create test results directory
+      file:
+        path: "{{ report_dir }}"
+        state: directory
+        mode: "0755"
+
+    # Wait for each fw container to pass its Docker healthcheck.
+    # The healthcheck runs 'nft list ruleset' — passes only when nftables is loaded.
+    - name: Wait for fw1 healthy
+      command: "docker inspect --format '{{ '{{' }}.State.Health.Status{{ '}}' }}' fw1"
+      register: h1
+      until: h1.stdout | trim == "healthy"
+      retries: 12
+      delay: 5
+      changed_when: false
+
+    - name: Wait for fw2 healthy
+      command: "docker inspect --format '{{ '{{' }}.State.Health.Status{{ '}}' }}' fw2"
+      register: h2
+      until: h2.stdout | trim == "healthy"
+      retries: 12
+      delay: 5
+      changed_when: false
+
+    - name: Wait for fw3 healthy
+      command: "docker inspect --format '{{ '{{' }}.State.Health.Status{{ '}}' }}' fw3"
+      register: h3
+      until: h3.stdout | trim == "healthy"
+      retries: 12
+      delay: 5
+      changed_when: false
+
+    # Start health monitor in background — polls nodes every 3s, writes health.json
+    - name: Start health monitor
+      shell: |
+        python3 {{ scripts_dir }}/monitor_health.py \
+          --interval 3 --output {{ health_log }} \
+          > {{ report_dir }}/monitor.log 2>&1 &
+        echo $!
+      register: monitor_pid
+      environment: "{{ test_env }}"
+      changed_when: false
+
+    # Give Keepalived time to run VRRP election and assign the VIP to fw1
+    - name: Wait for Keepalived election (10s)
+      pause:
+        seconds: 10
+
+    # Run the full pytest suite. ignore_errors so we can still generate report.
+    - name: Run pytest
+      command: >
+        pytest {{ test_dir }}
+          --json-report --json-report-file={{ pytest_json }}
+          --html={{ html_report }} --self-contained-html
+          -v --tb=short
+      environment: "{{ test_env }}"
+      register: pytest_result
+      ignore_errors: true
+      changed_when: false
+
+    - name: Stop health monitor
+      shell: "kill {{ monitor_pid.stdout | trim }} 2>/dev/null || true"
+      ignore_errors: true
+      changed_when: false
+
+    - name: Generate HTML report
+      command: >
+        python3 {{ scripts_dir }}/generate_report.py
+          --pytest-json {{ pytest_json }}
+          --health-json {{ health_log }}
+          --output {{ html_report }}
+      environment: "{{ test_env }}"
+      ignore_errors: true
+      changed_when: false
+
+    - name: Report location
+      debug:
+        msg: "Report: {{ html_report }} | pytest exit: {{ pytest_result.rc }}"
+
+    - name: Fail if tests failed
+      fail:
+        msg: "Tests FAILED (exit {{ pytest_result.rc }}). See {{ html_report }}"
+      when: pytest_result.rc != 0
