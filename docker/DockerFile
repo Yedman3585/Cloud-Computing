@@ -1,3 +1,7 @@
+# =============================================================================
+# Firewall Node Image — Debian 13 (trixie) + nftables + Keepalived + conntrackd
+# Used by: fw1, fw2, fw3
+# =============================================================================
 FROM debian:trixie-slim
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -35,21 +39,25 @@ RUN pip3 install --break-system-packages \
     scapy \
     pytest \
     pytest-html \
+    pytest-json-report \
     paramiko \
     requests
 
+# SSH: allow root login so Ansible can connect
 RUN mkdir -p /var/run/sshd \
     && echo 'root:firewall' | chpasswd \
     && sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config \
     && sed -i 's/#PasswordAuthentication yes/PasswordAuthentication yes/' /etc/ssh/sshd_config
 
-RUN echo 'net.ipv4.ip_forward=1'     >> /etc/sysctl.d/99-firewall.conf \
-    && echo 'net.ipv6.conf.all.forwarding=1' >> /etc/sysctl.d/99-firewall.conf
+RUN echo 'net.ipv4.ip_forward=1'              >> /etc/sysctl.d/99-firewall.conf \
+    && echo 'net.ipv6.conf.all.forwarding=1'  >> /etc/sysctl.d/99-firewall.conf
 
 RUN mkdir -p /etc/supervisor/conf.d
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+# supervisord.conf is copied from docker/ folder (same context)
+COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
-COPY entrypoint.sh /entrypoint.sh
+# entrypoint lives in docker/ — copy it and make executable
+COPY docker/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 WORKDIR /app

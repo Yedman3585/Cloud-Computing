@@ -1,5 +1,19 @@
+# =============================================================================
+# Scalable HA Firewall — Docker Compose
+# Topic 5.2 — Group 05
+#
+# NETWORKS:
+#   mgmt_net     172.20.0.0/24  — Keepalived VRRP, conntrackd sync, Ansible SSH
+#   frontend_net 172.21.0.0/24  — untrusted client side
+#   backend_net  172.22.0.0/24  — protected server side
+#
+# VIP: 172.20.0.100 — owned by MASTER fw node, taken over on failover
+# =============================================================================
 version: "3.8"
 
+# ---------------------------------------------------------------------------
+# NETWORKS — 3 isolated bridge networks
+# ---------------------------------------------------------------------------
 networks:
   mgmt_net:
     driver: bridge
@@ -29,18 +43,28 @@ networks:
         - subnet: 172.22.0.0/24
           gateway: 172.22.0.1
 
+# ---------------------------------------------------------------------------
+# VOLUMES
+# ---------------------------------------------------------------------------
 volumes:
   fw1_logs:
   fw2_logs:
   fw3_logs:
   test_results:
 
+# ---------------------------------------------------------------------------
+# SERVICES
+# ---------------------------------------------------------------------------
 services:
+
+  # ── FIREWALL NODES ─────────────────────────────────────────────────────
+  # All three build from the same DockerFile.
+  # Ansible + environment variables differentiate their roles at runtime.
 
   fw1:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/DockerFile      # BUG FIX: was "docker/Dockerfile" (wrong case)
     container_name: fw1
     hostname: fw1
     privileged: true
@@ -61,9 +85,7 @@ services:
         ipv4_address: 172.22.0.11
     volumes:
       - fw1_logs:/var/log
-      - ./ansible:/ansible:ro
       - ./tests:/tests:ro
-      - ./docker/entrypoint.sh:/entrypoint.sh:ro
     environment:
       - NODE_ROLE=master
       - KEEPALIVED_PRIORITY=110
@@ -81,7 +103,7 @@ services:
   fw2:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/DockerFile
     container_name: fw2
     hostname: fw2
     privileged: true
@@ -102,9 +124,7 @@ services:
         ipv4_address: 172.22.0.12
     volumes:
       - fw2_logs:/var/log
-      - ./ansible:/ansible:ro
       - ./tests:/tests:ro
-      - ./docker/entrypoint.sh:/entrypoint.sh:ro
     environment:
       - NODE_ROLE=backup
       - KEEPALIVED_PRIORITY=100
@@ -122,7 +142,7 @@ services:
   fw3:
     build:
       context: .
-      dockerfile: docker/Dockerfile
+      dockerfile: docker/DockerFile
     container_name: fw3
     hostname: fw3
     privileged: true
@@ -143,9 +163,7 @@ services:
         ipv4_address: 172.22.0.13
     volumes:
       - fw3_logs:/var/log
-      - ./ansible:/ansible:ro
       - ./tests:/tests:ro
-      - ./docker/entrypoint.sh:/entrypoint.sh:ro
     environment:
       - NODE_ROLE=backup
       - KEEPALIVED_PRIORITY=90
@@ -159,6 +177,10 @@ services:
       retries: 3
       start_period: 15s
     restart: unless-stopped
+
+  # ── CLIENT NODES ────────────────────────────────────────────────────────
+  # Sit on frontend_net — represent untrusted traffic sources.
+  # Used by scapy tests to send crafted packets toward the firewall.
 
   client1:
     build:
@@ -176,7 +198,6 @@ services:
       - ./tests:/tests:ro
       - test_results:/test_results
     environment:
-      - FIREWALL_VIP=172.21.0.11
       - FW1_IP=172.21.0.11
       - FW2_IP=172.21.0.12
       - FW3_IP=172.21.0.13
@@ -201,7 +222,6 @@ services:
       - ./tests:/tests:ro
       - test_results:/test_results
     environment:
-      - FIREWALL_VIP=172.21.0.11
       - FW1_IP=172.21.0.11
       - FW2_IP=172.21.0.12
       - FW3_IP=172.21.0.13
@@ -226,7 +246,6 @@ services:
       - ./tests:/tests:ro
       - test_results:/test_results
     environment:
-      - FIREWALL_VIP=172.21.0.11
       - FW1_IP=172.21.0.11
       - FW2_IP=172.21.0.12
       - FW3_IP=172.21.0.13
@@ -234,6 +253,10 @@ services:
       fw1:
         condition: service_healthy
     restart: unless-stopped
+
+  # ── BACKEND SERVERS ─────────────────────────────────────────────────────
+  # Protected services behind the firewall on backend_net.
+  # nginx serves as a simple HTTP target for connectivity tests.
 
   server1:
     image: nginx:alpine
@@ -266,6 +289,12 @@ services:
       timeout: 3s
       retries: 3
     restart: unless-stopped
+
+  # ── TEST RUNNER ─────────────────────────────────────────────────────────
+  # Dedicated container that runs the full pytest suite.
+  # Uses 'profiles: testing' so it does NOT start with 'docker compose up'.
+  # Launch manually: docker compose --profile testing run --rm test_runner
+  # Or via Ansible: the run_tests.yml playbook starts it automatically.
 
   test_runner:
     build:
@@ -308,11 +337,12 @@ services:
         condition: service_healthy
       server2:
         condition: service_healthy
-
     profiles:
       - testing
     command: >
       pytest /tests
+        --json-report
+        --json-report-file=/test_results/pytest.json
         --html=/test_results/report.html
         --self-contained-html
         -v
