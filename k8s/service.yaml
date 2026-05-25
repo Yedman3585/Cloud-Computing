@@ -9,17 +9,20 @@ spec:
   selector:
     app: firewall
 
-  type: ClusterIP
+  type: NodePort
 
   ports:
     - name: ssh
       port: 22
       targetPort: 22
+      nodePort: 30022
 
     - name: http
       port: 80
       targetPort: 80
+      nodePort: 30080
 
     - name: https
       port: 443
       targetPort: 443
+      nodePort: 30443
