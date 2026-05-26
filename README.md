@@ -269,3 +269,23 @@ The project can be considered complete when:
 - Monitoring and logging show firewall activity and failover events.
 - CI/CD runs linting, syntax checks, tests, and deployment steps.
 - Documentation clearly maps every requirement to implementation and validation evidence.
+
+
+
+
+Docker topology
+
+Should Ansible connect to containers by Docker network IP, container name, or SSH?
+Best for project realism: SSH into Debian containers, because that is closer to VMs/physical machines.
+Firewall role responsibility
+
+Does Member 5 only render configs, or also apply them?
+Best: Member 5 wires render/apply flow; Member 1 owns final rule correctness.
+Hostname rule format
+
+Should rules reference object names like web_backend, or direct hostnames like client1?
+Best: use object names, and objects contain IPv4/IPv6 lists from inventory.
+
+
+
+
