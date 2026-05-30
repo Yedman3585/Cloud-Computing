@@ -24,6 +24,11 @@ spec:
           image: firewall:latest
           imagePullPolicy: Never
 
+          command:
+            - /bin/sh
+            - -c
+            - sleep infinity
+
           securityContext:
             privileged: true
 
@@ -31,24 +36,3 @@ spec:
             - containerPort: 22
             - containerPort: 80
             - containerPort: 443
-
-          resources:
-            requests:
-              memory: "256Mi"
-              cpu: "250m"
-
-            limits:
-              memory: "512Mi"
-              cpu: "500m"
-
-          livenessProbe:
-            tcpSocket:
-              port: 22
-            initialDelaySeconds: 20
-            periodSeconds: 10
-
-          readinessProbe:
-            tcpSocket:
-              port: 22
-            initialDelaySeconds: 10
-            periodSeconds: 5
