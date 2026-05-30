@@ -1,0 +1,25 @@
+vrrp_instance VI_1 {
+    state {{ 'MASTER' if node_role == 'master' else 'BACKUP' }}
+    interface {{ vrrp_interface }}
+    virtual_router_id 51
+    priority {{ keepalived_priority }}
+    advert_int 1
+
+    unicast_src_ip {{ ansible_host }}
+    unicast_peer {
+        {% for host in groups['firewall_nodes'] %}
+        {% if hostvars[host]['ansible_host'] != ansible_host %}
+        {{ hostvars[host]['ansible_host'] }}
+        {% endif %}
+        {% endfor %}
+    }
+
+    authentication {
+        auth_type PASS
+        auth_pass secret123
+    }
+
+    virtual_ipaddress {
+        {{ virtual_ip }}/24
+    }
+}

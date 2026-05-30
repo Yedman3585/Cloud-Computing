@@ -1,0 +1,26 @@
+flush ruleset
+table ip filter {
+    chain input {
+        type filter hook input priority 0;
+        policy drop;
+
+        ct state established,related accept
+        iif lo accept
+	
+	{% for host in resolved_hosts %}
+	{% if host.ipv4 %}
+	ip saddr {{ host.ipv4 }} accept comment "{{ host.name }}"
+	{% endif %}
+	{% endfor %}
+	
+        {% for port in allowed_ports %}
+        tcp dport {{ port }} accept
+        {% endfor %}
+
+        {% for ip in allowed_ips %}
+        ip saddr {{ ip }} accept
+        {% endfor %}
+
+        ip protocol icmp accept
+    }
+}

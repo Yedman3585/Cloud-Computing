@@ -1,0 +1,39 @@
+Sync {
+    Mode NOTRACK {
+        DisableExternalCache Off
+        CommitTimeout 1800
+        PurgeTimeout 60
+    }
+    UDP Default {
+        IPv4_address {{ ansible_host }}
+        {% for host in groups['firewall_nodes'] %}
+        {% if hostvars[host]['ansible_host'] != ansible_host %}
+        IPv4_Destination_Address {{ hostvars[host]['ansible_host'] }}
+        {% endif %}
+        {% endfor %}
+        Port 3780
+        Interface {{ vrrp_interface }}
+        Checksum on
+    }
+}
+
+General {
+    HashSize 32768
+    HashLimit 131072
+    LogFile /var/log/conntrackd.log
+    LockFile /var/lock/conntrack.lock
+    UNIX {
+        Path /var/run/conntrackd.ctl
+    }
+    Filter From Kernelspace {
+        Protocol Accept {
+            TCP
+            UDP
+            ICMP
+        }
+        Address Ignore {
+            IPv4_address 127.0.0.1
+            IPv4_address {{ ansible_host }}
+        }
+    }
+}

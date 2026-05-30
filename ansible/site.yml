@@ -1,0 +1,53 @@
+---
+- name: Configure HA Firewall nodes
+  hosts: firewall_nodes
+  become: yes
+
+  tasks:
+    - name: Install required packages
+      apt:
+        name:
+          - nftables
+          - keepalived
+          - conntrackd
+          - tcpdump
+          - iftop
+          - cbm
+          - python3
+          - iproute2
+        state: present
+        update_cache: yes
+
+    - name: Deploy nftables IPv4 rules
+      template:
+        src: nftables_ipv4.j2
+        dest: /etc/nftables_ipv4.nft
+      notify: reload nftables
+
+    - name: Deploy nftables IPv6 rules
+      template:
+        src: nftables_ipv6.j2
+        dest: /etc/nftables_ipv6.nft
+      notify: reload nftables
+
+    - name: Deploy Keepalived config
+      template:
+        src: keepalived.conf.j2
+        dest: /etc/keepalived/keepalived.conf
+      notify: reload keepalived
+
+    - name: Deploy conntrackd config
+      template:
+        src: conntrackd.conf.j2
+        dest: /etc/conntrackd/conntrackd.conf
+      notify: reload conntrackd
+
+  handlers:
+    - name: reload nftables
+      command: nft -f /etc/nftables_ipv4.nft
+
+    - name: reload keepalived
+      command: pkill -HUP keepalived || true
+
+    - name: reload conntrackd
+      command: pkill -HUP conntrackd || true
