@@ -9,11 +9,14 @@ try:
 
     print(output)
 
-    if "Running" in output:
-        print("[PASS] Firewall pods running")
-    else:
-        print("[FAIL] No running pods")
-        sys.exit(1)
+    running = output.count("Running")
+
+    if running >= 3:
+        print("[PASS] Firewall deployment healthy")
+        sys.exit(0)
+
+    print("[FAIL] Firewall deployment unhealthy")
+    sys.exit(1)
 
 except Exception as e:
     print("[ERROR]", e)
