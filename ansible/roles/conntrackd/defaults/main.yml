@@ -1,6 +1,6 @@
 ---
 conntrackd_interface: eth0
-conntrackd_sync_mode: FTFW
-conntrackd_multicast_ipv4: 225.0.0.50
-conntrackd_multicast_ipv6: ff02::50
+conntrackd_sync_mode: NOTRACK
 conntrackd_port: 3780
+conntrackd_commit_timeout: 1800
+conntrackd_purge_timeout: 60

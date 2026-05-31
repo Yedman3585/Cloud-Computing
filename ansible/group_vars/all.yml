@@ -5,32 +5,39 @@ firewall_default_policy: drop
 firewall_objects:
   admin_net:
     ipv4:
-      - 192.168.56.0/24
+      - 172.20.0.0/24
     ipv6:
-      - fd00:56::/64
-  client_net:
-    ipv4:
-      - 10.10.10.0/24
-    ipv6:
-      - fd00:10::/64
-  web_backend:
-    ipv4:
-      - 10.20.20.10/32
-    ipv6:
-      - fd00:20::10/128
-  firewall_cluster:
-    ipv4:
-      - 10.0.0.100/32
-    ipv6:
-      - fd00:5::100/128
+      - fd00:20::/64
   firewall_peer_net:
     ipv4:
-      - 10.0.0.0/24
+      - 172.20.0.0/24
     ipv6:
-      - fd00:5::/64
+      - fd00:20::/64
+  frontend_net:
+    ipv4:
+      - 172.21.0.0/24
+    ipv6:
+      - fd00:21::/64
+  backend_net:
+    ipv4:
+      - 172.22.0.0/24
+    ipv6:
+      - fd00:22::/64
+  firewall_cluster_vip:
+    ipv4:
+      - 172.20.0.100/32
+    ipv6:
+      - fd00:20::100/128
+  backend_servers:
+    ipv4:
+      - 172.22.0.31/32
+      - 172.22.0.32/32
+    ipv6:
+      - fd00:22::31/128
+      - fd00:22::32/128
 
 firewall_rules:
-  - name: allow_ssh_from_admin
+  - name: allow_ssh_from_management
     chain: input
     source: admin_net
     destination: any
@@ -52,24 +59,36 @@ firewall_rules:
     ports:
       - 3780
     action: accept
-  - name: allow_client_http_to_backend
+  - name: allow_management_icmp
+    chain: input
+    source: admin_net
+    destination: any
+    protocol: icmp
+    action: accept
+  - name: allow_management_icmpv6
+    chain: input
+    source: admin_net
+    destination: any
+    protocol: icmpv6
+    action: accept
+  - name: allow_frontend_http_to_backend
     chain: forward
-    source: client_net
-    destination: web_backend
+    source: frontend_net
+    destination: backend_servers
     protocol: tcp
     ports:
       - 80
       - 443
     action: accept
-  - name: allow_ipv4_icmp
-    chain: input
-    source: any
-    destination: any
+  - name: allow_frontend_icmp_to_backend
+    chain: forward
+    source: frontend_net
+    destination: backend_net
     protocol: icmp
     action: accept
-  - name: allow_ipv6_icmp
-    chain: input
-    source: any
-    destination: any
+  - name: allow_frontend_icmpv6_to_backend
+    chain: forward
+    source: frontend_net
+    destination: backend_net
     protocol: icmpv6
     action: accept

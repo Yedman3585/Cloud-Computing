@@ -1,21 +1,22 @@
 #!/usr/sbin/nft -f
-{% macro render_rule_for_family(rule, family, suffix) -%}
+{% macro family_rule(rule, family, suffix) -%}
 {% set source = rule.source | default('any') %}
 {% set destination = rule.destination | default('any') %}
 {% set protocol = rule.protocol | default('all') %}
 {% set action = rule.action | default('drop') %}
 {% set source_values = [] if source == 'any' else firewall_objects[source][suffix] | default([]) %}
 {% set destination_values = [] if destination == 'any' else firewall_objects[destination][suffix] | default([]) %}
-{% set family_needed = source != 'any' or destination != 'any' or protocol in ['icmp', 'icmpv6', 'vrrp'] %}
-{% set family_allowed = (family_needed or family == 'ip') and not (protocol == 'icmp' and family == 'ip6') and not (protocol == 'icmpv6' and family == 'ip') %}
-{% if family_allowed and (source == 'any' or source_values | length > 0) and (destination == 'any' or destination_values | length > 0) %}
+{% set has_source = source == 'any' or source_values | length > 0 %}
+{% set has_destination = destination == 'any' or destination_values | length > 0 %}
+{% set protocol_allowed = not (protocol == 'icmp' and family == 'ip6') and not (protocol == 'icmpv6' and family == 'ip') %}
+{% if has_source and has_destination and protocol_allowed %}
         # {{ rule.name }} ({{ family }})
-{% if source != 'any' %}        {{ family }} saddr @{{ source }}_{{ suffix }}{% else %}        {% endif %}{% if destination != 'any' %} {{ family }} daddr @{{ destination }}_{{ suffix }}{% endif %}{% if protocol in ['tcp', 'udp'] %} {{ protocol }} dport { {{ rule.ports | join(', ') }} }{% elif protocol == 'icmp' %} ip protocol icmp{% elif protocol == 'icmpv6' %} ip6 nexthdr icmpv6{% elif protocol == 'vrrp' and family == 'ip' %} ip protocol vrrp{% elif protocol == 'vrrp' and family == 'ip6' %} ip6 nexthdr vrrp{% endif %} counter {{ action }}
+        {% if source != 'any' %}{{ family }} saddr @{{ source }}_{{ suffix }} {% endif %}{% if destination != 'any' %}{{ family }} daddr @{{ destination }}_{{ suffix }} {% endif %}{% if protocol in ['tcp', 'udp'] %}{{ protocol }} dport { {{ rule.ports | join(', ') }} } {% elif protocol == 'icmp' %}ip protocol icmp {% elif protocol == 'icmpv6' %}ip6 nexthdr icmpv6 {% elif protocol == 'vrrp' %}meta l4proto 112 {% endif %}counter {{ action }}
 {% endif %}
 {%- endmacro %}
-{% macro render_firewall_rule(rule) -%}
-{{ render_rule_for_family(rule, 'ip', 'ipv4') }}
-{{ render_rule_for_family(rule, 'ip6', 'ipv6') }}
+{% macro render_rule(rule) -%}
+{{ family_rule(rule, 'ip', 'ipv4') }}
+{{ family_rule(rule, 'ip6', 'ipv6') }}
 {%- endmacro %}
 
 flush ruleset
@@ -47,7 +48,7 @@ table inet filter {
         iif lo accept
 
 {% for rule in firewall_rules if rule.chain | default('input') == 'input' %}
-{{ render_firewall_rule(rule) }}
+{{ render_rule(rule) }}
 {% endfor %}
     }
 
@@ -58,7 +59,7 @@ table inet filter {
         ct state established,related accept
 
 {% for rule in firewall_rules if rule.chain | default('input') == 'forward' %}
-{{ render_firewall_rule(rule) }}
+{{ render_rule(rule) }}
 {% endfor %}
     }
 

@@ -1,0 +1,150 @@
+---
+- name: Run firewall integration test suite after deployment
+  hosts: localhost
+  gather_facts: false
+  become: false
+  vars:
+    repo_root: "{{ playbook_dir }}/../.."
+    active_virtualenv: "{{ lookup('ansible.builtin.env', 'VIRTUAL_ENV') }}"
+    test_python: >-
+      {{
+        (active_virtualenv ~ '/bin/python')
+        if active_virtualenv | length > 0
+        else (repo_root ~ '/.venv_linux/bin/python')
+      }}
+    report_dir: "{{ playbook_dir }}/../../test_results"
+    test_dir: "{{ playbook_dir }}/../../tests"
+    scripts_dir: "{{ playbook_dir }}/../../scripts"
+    health_log: "{{ report_dir }}/health.json"
+    monitor_log: "{{ report_dir }}/monitor.log"
+    pytest_json: "{{ report_dir }}/pytest.json"
+    pytest_stdout: "{{ report_dir }}/pytest.stdout.log"
+    pytest_stderr: "{{ report_dir }}/pytest.stderr.log"
+    html_report: "{{ report_dir }}/report.html"
+    test_env:
+      FW1_MGMT_IP: "172.20.0.11"
+      FW2_MGMT_IP: "172.20.0.12"
+      FW3_MGMT_IP: "172.20.0.13"
+      FW1_FRONTEND_IP: "172.21.0.11"
+      FW2_FRONTEND_IP: "172.21.0.12"
+      FW3_FRONTEND_IP: "172.21.0.13"
+      VIRTUAL_IP: "172.20.0.100"
+      SERVER1_IP: "172.22.0.31"
+      SERVER2_IP: "172.22.0.32"
+      REPORT_DIR: "{{ report_dir }}"
+
+  tasks:
+    - name: Create test results directory
+      ansible.builtin.file:
+        path: "{{ report_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Verify test Python environment has pytest
+      ansible.builtin.command:
+        argv:
+          - "{{ test_python }}"
+          - -m
+          - pytest
+          - --version
+      register: pytest_version_check
+      failed_when: false
+      changed_when: false
+
+    - name: Fail when pytest is missing from the test environment
+      ansible.builtin.fail:
+        msg: >-
+          pytest is not installed in {{ test_python }}.
+          Activate the WSL virtualenv and run:
+          python -m pip install -r requirements.txt
+      when: pytest_version_check.rc != 0
+
+    - name: Wait for firewall containers to become healthy
+      ansible.builtin.command:
+        cmd: "docker inspect --format '{{ '{{' }}.State.Health.Status{{ '}}' }}' {{ item }}"
+      register: firewall_health_check
+      until: firewall_health_check.stdout | trim == "healthy"
+      retries: 12
+      delay: 5
+      changed_when: false
+      loop:
+        - fw1
+        - fw2
+        - fw3
+
+    - name: Start health monitor in background
+      ansible.builtin.shell: >-
+        {{ test_python | quote }}
+        {{ (scripts_dir ~ '/monitor_health.py') | quote }}
+        --interval 3
+        --output {{ health_log | quote }}
+        > {{ monitor_log | quote }} 2>&1 &
+        echo $!
+      register: firewall_monitor_pid
+      environment: "{{ test_env }}"
+      changed_when: false
+
+    - name: Wait for Keepalived election
+      ansible.builtin.pause:
+        seconds: 10
+
+    - name: Run pytest integration suite
+      ansible.builtin.command:
+        argv:
+          - "{{ test_python }}"
+          - -m
+          - pytest
+          - "{{ test_dir }}"
+          - --json-report
+          - "--json-report-file={{ pytest_json }}"
+          - "--html={{ html_report }}"
+          - --self-contained-html
+          - -v
+          - "--tb=short"
+      environment: "{{ test_env }}"
+      register: firewall_pytest_result
+      failed_when: false
+      changed_when: false
+
+    - name: Save pytest stdout
+      ansible.builtin.copy:
+        dest: "{{ pytest_stdout }}"
+        content: "{{ firewall_pytest_result.stdout | default('') }}"
+        mode: "0644"
+      changed_when: false
+
+    - name: Save pytest stderr
+      ansible.builtin.copy:
+        dest: "{{ pytest_stderr }}"
+        content: "{{ firewall_pytest_result.stderr | default('') }}"
+        mode: "0644"
+      changed_when: false
+
+    - name: Stop health monitor
+      ansible.builtin.shell: "kill {{ firewall_monitor_pid.stdout | trim }} 2>/dev/null || true"
+      failed_when: false
+      changed_when: false
+
+    - name: Generate HTML report
+      ansible.builtin.command:
+        argv:
+          - "{{ test_python }}"
+          - "{{ scripts_dir }}/generate_report.py"
+          - --pytest-json
+          - "{{ pytest_json }}"
+          - --health-json
+          - "{{ health_log }}"
+          - --output
+          - "{{ html_report }}"
+      environment: "{{ test_env }}"
+      failed_when: false
+      changed_when: false
+
+    - name: Show report location
+      ansible.builtin.debug:
+        msg: "Report: {{ html_report }} | pytest exit: {{ firewall_pytest_result.rc }} | stdout: {{ pytest_stdout }} | stderr: {{ pytest_stderr }}"
+
+    - name: Fail when pytest failed
+      ansible.builtin.fail:
+        msg: "Tests failed with exit {{ firewall_pytest_result.rc }}. See {{ html_report }}, {{ pytest_stdout }}, and {{ pytest_stderr }}"
+      when: firewall_pytest_result.rc != 0

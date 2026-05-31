@@ -17,6 +17,7 @@ In the final version, the project should include:
 - Three Debian 13 firewall nodes: `fw1`, `fw2`, and `fw3`.
 - nftables firewall rules for both IPv4 and IPv6.
 - Static hostname, IPv4, and IPv6 data stored in Ansible inventory.
+- Docker lab targets use Ansible's Docker connection plugin; VM or physical targets should use a separate SSH-based inventory.
 - Keepalived VRRP failover with a shared cluster IP.
 - conntrackd connection state synchronization between firewall nodes.
 - Docker Compose test infrastructure with two or three isolated networks and test clients.
@@ -49,9 +50,11 @@ In the final version, the project should include:
 
 ## Current Project Status
 
-The project has a working Member 5 Stage 1 foundation. This means the Ansible integration layer can be checked independently before the rest of the team finishes Docker Compose, real traffic testing, monitoring, CI/CD, and Kubernetes work.
+The project has moved beyond the isolated Member 5 Stage 1 foundation. The Ansible integration layer now uses the Docker test topology from teammate updates as its target environment.
 
-The full project is not finished yet. The main missing areas are still real Docker Compose infrastructure, real failover tests, real conntrackd synchronization tests, full monitoring integration, and CI/CD/Kubernetes assets.
+The core Docker/WSL integration path is now passing. Ansible deploys the three firewall nodes in the Docker Compose topology, and the integration test playbook validates nftables rules, Keepalived failover, conntrackd behavior, IPv6 rule rendering, and report generation.
+
+The full project still needs final cross-member polish: monitoring integration, CI/CD/Kubernetes completion, secrets handling with Ansible Vault, and optional VM or physical-host validation if required by the professor.
 
 ## Member 5 Work: Done And Pending
 
@@ -81,6 +84,12 @@ The full project is not finished yet. The main missing areas are still real Dock
 - Added `ansible/requirements.yml` and Molecule collection requirements.
 - Added `docs/requirements-validation.md`.
 - Added `docs/member-5-status.md`.
+- Added `docs/team-integration-notes.md`.
+- Imported Docker Compose infrastructure for `fw1`, `fw2`, `fw3`, test clients, backend servers, and a test runner.
+- Updated Ansible inventory to match the Docker network topology.
+- Moved VRRP settings into a cluster-scoped `keepalived_cluster` structure.
+- Added pytest-based integration tests and report helper scripts.
+- Added a basic CI validation pipeline.
 
 ### Verified
 
@@ -90,17 +99,20 @@ The full project is not finished yet. The main missing areas are still real Dock
 - Firewall role Molecule scenario passes on a Debian 13 Docker container.
 - Molecule idempotence check passes.
 - Molecule verifies rendered mock IPv4 and IPv6 nftables rules.
+- Docker Compose builds the firewall and client images.
+- Docker Compose starts the three firewall containers, three clients, and two backend servers.
+- The rendered nftables ruleset passes `nft -c` syntax validation inside `fw1`.
+- `ansible/playbooks/site.yml` deploys common packages, nftables, Keepalived, and conntrackd to `fw1`, `fw2`, and `fw3`.
+- Keepalived runs on all three firewall nodes and moves the VIP during failover tests.
+- conntrackd runtime checks pass after stale Docker lock/socket recovery was added to the test setup.
+- `ansible/playbooks/run_tests.yml` passes with `79 passed`, `0 failed`, and `11 skipped`.
 
 ### Still Needed
 
 - Add Ansible Vault for real secrets, especially Keepalived authentication data.
 - Add or finalize a dynamic inventory plugin if the final scope requires Docker/Kubernetes/physical inventory discovery.
-- Run the full playbook against Member 2's final Docker Compose topology.
 - Run the full playbook against a Debian 13 VM or real host to prove portability.
-- Integrate final nftables rules from Member 1.
-- Validate real nftables apply behavior on privileged Linux targets.
-- Validate Keepalived VIP failover with three firewall nodes.
-- Validate conntrackd connection state synchronization during failover.
+- Final-review nftables rules from Member 1.
 - Update the requirement matrix after every teammate's final implementation is merged.
 - Prepare final commit, push, and merge workflow with the team.
 
@@ -114,11 +126,11 @@ The full project is not finished yet. The main missing areas are still real Dock
 | 4 | nftables role integration | Done |
 | 5 | Custom validation and apply modules | Done |
 | 6 | Local quality validation | Done |
-| 7 | Documentation and requirement mapping | Partial |
-| 8 | Final integration with other members' parts | Pending |
+| 7 | Documentation and requirement mapping | Done |
+| 8 | Final integration with other members' parts | Done for Docker/WSL lab |
 
 
-Stage 1 is complete. Stage 2 begins when the remaining team components are available for integration testing.
+Stage 1 is complete. Stage 2 core integration is complete for the Docker/WSL lab: the Docker topology, pytest tests, report helpers, Ansible deployment, Keepalived failover checks, and conntrackd checks are connected and passing.
 
 ## Project Structure
 
@@ -127,15 +139,36 @@ Current repository structure:
 ```text
 .
 |-- README.md
-|-- DockerFile
 |-- docker-compose.yml
+|-- Makefile
+|-- pytest.ini
+|-- requirements.txt
 |-- nftables.conf
 |-- render.py
 |-- run_wsl_checks.sh
 |-- vars.yml
+|-- docker/
+|   |-- DockerFile
+|   |-- Dockerfile.client
+|   |-- entrypoint.sh
+|   |-- supervisord.conf
+|   `-- nginx/
+|       |-- server1.html
+|       `-- server2.html
+|-- tests/
+|   |-- conftest.py
+|   |-- test_conntrackd.py
+|   |-- test_failover.py
+|   |-- test_ipv6.py
+|   |-- test_nftables_rules.py
+|   `-- traffic_generator.py
+|-- scripts/
+|   |-- generate_report.py
+|   `-- monitor_health.py
 |-- docs/
 |   |-- member-5-status.md
-|   `-- requirements-validation.md
+|   |-- requirements-validation.md
+|   `-- team-integration-notes.md
 |-- monitoring/
 |   `-- analyzers/
 |       |-- conntrack_analyzer.py
@@ -153,7 +186,8 @@ Current repository structure:
     |   |-- inventory_validate.py
     |   `-- nftables_apply.py
     |-- playbooks/
-    |   `-- site.yml
+    |   |-- site.yml
+    |   `-- run_tests.yml
     `-- roles/
         |-- common/
         |-- firewall/
@@ -223,6 +257,15 @@ From the repository root:
 bash run_wsl_checks.sh
 ```
 
+The script prefers the project `.venv_linux` environment when it exists. If Ansible is missing in WSL, recreate or activate the environment first:
+
+```bash
+python3 -m venv .venv_linux
+source .venv_linux/bin/activate
+python -m pip install -r requirements.txt molecule molecule-plugins[docker] ansible-lint
+ansible-galaxy collection install -r ansible/requirements.yml
+```
+
 Expected result:
 
 - Inventory graph contains `fw1`, `fw2`, and `fw3`.
@@ -245,13 +288,20 @@ Expected result:
 - Idempotence passes.
 - The container is destroyed.
 
+If Molecule reports that it cannot contact the Docker daemon, start Docker Desktop on Windows and enable WSL integration for the Linux distribution, then verify from WSL:
+
+```bash
+docker version
+docker ps
+```
+
 ## Known Current Gaps
 
-- `docker-compose.yml` and `DockerFile` still need the final Member 2 implementation.
-- `.gitlab-ci.yml` or the chosen CI workflow still needs the final Member 3 implementation.
+- Docker Compose infrastructure builds and starts, and Ansible deployment, failover, and integration tests pass in WSL/Docker.
+- `.gitlab-ci.yml` currently contains basic validation jobs only; Member 3 may still extend it.
 - Kubernetes or Helm deployment files still need the final Member 3 implementation.
 - Monitoring scripts exist, but the final Member 4 dashboard, log flow, alerting, and packet capture integration are not complete.
-- Real nftables application, Keepalived failover, and conntrackd synchronization still require privileged Linux integration tests.
+- Real nftables application, Keepalived failover, and conntrackd synchronization have passed privileged Docker integration tests.
 - The current Molecule test validates role rendering and idempotence, not full kernel-level firewall behavior.
 
 ## Final Acceptance Criteria
@@ -269,23 +319,3 @@ The project can be considered complete when:
 - Monitoring and logging show firewall activity and failover events.
 - CI/CD runs linting, syntax checks, tests, and deployment steps.
 - Documentation clearly maps every requirement to implementation and validation evidence.
-
-
-
-
-Docker topology
-
-Should Ansible connect to containers by Docker network IP, container name, or SSH?
-Best for project realism: SSH into Debian containers, because that is closer to VMs/physical machines.
-Firewall role responsibility
-
-Does Member 5 only render configs, or also apply them?
-Best: Member 5 wires render/apply flow; Member 1 owns final rule correctness.
-Hostname rule format
-
-Should rules reference object names like web_backend, or direct hostnames like client1?
-Best: use object names, and objects contain IPv4/IPv6 lists from inventory.
-
-
-
-

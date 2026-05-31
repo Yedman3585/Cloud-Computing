@@ -1,33 +1,38 @@
 Sync {
     Mode {{ conntrackd_sync_mode }} {
         DisableExternalCache Off
-        CommitTimeout 180
-        PurgeTimeout 5
+        CommitTimeout {{ conntrackd_commit_timeout | default(1800) }}
+        PurgeTimeout {{ conntrackd_purge_timeout | default(60) }}
     }
 
-    Multicast {
-        IPv4_address {{ conntrackd_multicast_ipv4 }}
-        IPv4_interface {{ ipv4_addr }}
-        IPv6_address {{ conntrackd_multicast_ipv6 }}
-        IPv6_interface {{ ipv6_addr }}
-        Interface {{ conntrackd_interface }}
+    UDP Default {
+        IPv4_address {{ ipv4_addr }}
+        IPv4_Destination_Address {{ conntrackd_sync_peer_ipv4 }}
         Port {{ conntrackd_port }}
-        SndSocketBuffer 1249280
-        RcvSocketBuffer 1249280
+        Interface {{ conntrackd_interface }}
         Checksum on
     }
 }
 
 General {
-    Nice -20
     HashSize 32768
     HashLimit 131072
-    LogFile on
-    Syslog on
-    LockFile /var/lock/conntrackd.lock
+    LogFile /var/log/conntrackd/conntrackd.log
+    LockFile /var/lock/conntrack.lock
 
     UNIX {
         Path /var/run/conntrackd.ctl
-        Backlog 20
+    }
+
+    Filter From Kernelspace {
+        Protocol Accept {
+            TCP
+            UDP
+            ICMP
+        }
+        Address Ignore {
+            IPv4_address 127.0.0.1
+            IPv4_address {{ ipv4_addr }}
+        }
     }
 }

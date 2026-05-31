@@ -1,0 +1,24 @@
+stages:
+  - validate
+
+python:syntax:
+  stage: validate
+  image: python:3.11-slim
+  script:
+    - python -m compileall -q ansible/library scripts tests render.py
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+docker:compose-config:
+  stage: validate
+  image: docker:24
+  services:
+    - docker:24-dind
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+  script:
+    - docker compose config --quiet
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push"'
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'

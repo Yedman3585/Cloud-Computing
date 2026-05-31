@@ -3,6 +3,7 @@ common_packages:
   - nftables
   - keepalived
   - conntrackd
+  - conntrack
   - python3
   - python3-apt
   - python3-pip
@@ -19,18 +20,24 @@ common_diagnostic_packages:
   - iftop
   - cbm
 
+common_manage_rsyslog_service: false
+
 firewall_nftables_conf_path: /etc/nftables.conf
 firewall_nftables_apply_rules: true
+firewall_nftables_manage_service: false
 
-keepalived_interface: eth0
-keepalived_virtual_router_id: 55
-keepalived_advert_int: 1
-keepalived_auth_pass: "{{ vault_keepalived_auth_pass | default('fwha2026') }}"
-keepalived_vip_ipv4: 10.0.0.100/24
-keepalived_vip_ipv6: fd00:5::100/64
+keepalived_service_mode: init_script
+keepalived_cluster:
+  name: firewall_cluster_main
+  instance_name: VI_1
+  interface: eth2
+  virtual_router_id: 51
+  advert_int: 1
+  auth_pass: fwha2026
+  vip_ipv4: 172.20.0.100/24
+  vip_ipv6: fd00:20::100/64
+  enable_ipv6_vip: false
 
-conntrackd_interface: "{{ keepalived_interface }}"
-conntrackd_sync_mode: FTFW
-conntrackd_multicast_ipv4: 225.0.0.50
-conntrackd_multicast_ipv6: ff02::50
+conntrackd_interface: eth2
+conntrackd_sync_mode: NOTRACK
 conntrackd_port: 3780

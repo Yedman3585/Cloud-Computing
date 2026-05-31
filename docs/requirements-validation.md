@@ -1,30 +1,53 @@
 # Requirements Validation Matrix
 
-This document is the shared quality contract for Topic 5.2. It maps each project requirement to an owner, implementation location, validation command, expected result, and current status.
+This document is the shared quality contract for Topic 5.2. It maps each requirement to the current implementation path and the command that should prove it.
 
 | Requirement | Owner | Implementation | Validation Command | Expected Result | Status |
 |---|---|---|---|---|---|
-| Three firewall nodes exist in inventory | Member 5 + Member 2 | `ansible/inventory/hosts.yml` | From `ansible/`: `ansible-inventory --graph` | `fw1`, `fw2`, and `fw3` are in group `firewalls` | Partial |
-| Hostname entries include static IPv4 and IPv6 | Member 5 | `ansible/inventory/hosts.yml` | From `ansible/`: `ansible-playbook playbooks/site.yml --syntax-check` plus `inventory_validate` | Every firewall has `ipv4_addr`, `ipv6_addr`, and `keepalived_priority` | Partial |
-| Ansible is the canonical rollout mechanism | Member 5 | `ansible/ansible.cfg`, `ansible/playbooks/site.yml`, roles | From `ansible/`: `ansible-playbook playbooks/site.yml --syntax-check` | Playbook loads inventory and roles without syntax errors | Partial |
-| nftables supports IPv4 and IPv6 | Member 1 + Member 5 | `ansible/roles/firewall/templates/nftables.conf.j2` | `nft -c -f /etc/nftables.conf` on Debian firewall node | Ruleset validates for table `inet` and contains IPv4/IPv6 object sets | Partial |
-| Custom Ansible module applies nftables rules | Member 1 + Member 5 | `ansible/library/nftables_apply.py` | Run firewall role on Debian node | Module validates with `nft -c` before applying with `nft -f` | Partial |
-| Inventory validation fails early | Member 5 | `ansible/library/inventory_validate.py` | Run `ansible/playbooks/site.yml` with invalid inventory | Playbook fails before configuring nodes | Partial |
-| Keepalived failover for cluster IP | Member 1 + Member 5 | `ansible/roles/keepalived` | Stop active firewall node | VIP moves to next highest-priority node | Missing real failover test |
-| Conntrack state synchronization | Member 1 + Member 5 | `ansible/roles/conntrackd` | Compare conntrack state before and after failover | Existing TCP sessions continue or recover cleanly | Missing real traffic test |
-| Docker Compose test topology | Member 2 | `docker-compose.yml`, `DockerFile` | `docker compose config` | Compose defines 3 firewalls and 2-3 test networks with clients | Missing |
-| Automated QA traffic tests | Member 2 | `tests/` | `pytest` | Allowed traffic passes and blocked traffic fails | Missing |
-| CI/CD pipeline | Member 3 | `.gitlab-ci.yml` or Gitea Actions workflow | Pipeline run | Build, test, and deploy stages execute | Missing |
-| Kubernetes/Helm deployment | Member 3 | `kubernetes/` or `charts/` | `helm lint` and `helm template` | Chart renders valid Kubernetes manifests | Missing |
-| Monitoring and diagnostics | Member 4 | `monitoring/`, rsyslog, tcpdump, dashboard | Generate allowed and blocked packets | Logs, captures, and dashboard reflect traffic and failover | Prototype |
-| Diagnostic packages installed on firewall nodes | Member 4 + Member 5 | `ansible/group_vars/firewalls.yml`, `common` role | Run common role on Debian node | `tcpdump`, `iftop`, and `cbm` are installed | Partial |
-| Debian 13 portability outside Docker | Member 5 + all | Ansible roles only, no Docker-specific commands | Run playbook against Debian 13 VM | Playbook completes without Docker assumptions | Partial |
-| Molecule role test | Member 5 | `ansible/roles/firewall/molecule/default` | From `ansible/roles/firewall/`: `molecule test` | Docker lifecycle creates Debian 13 container, role converges, and `/etc/nftables.conf` renders mock IPv4/IPv6 rules | Partial; lifecycle fixed, real nftables apply still requires privileged integration test |
+| Three firewall nodes exist in inventory | Member 5 + Member 2 | `ansible/inventory/hosts.yml` | `ansible-inventory --graph` | `fw1`, `fw2`, `fw3` appear in `firewalls` | Integrated |
+| Docker topology has 3 firewalls and test networks | Member 2 + Member 5 | `docker-compose.yml`, `docker/` | `docker compose up -d --build` | Firewall, client, and server containers start | Passed after entrypoint line-ending fix |
+| Static hostname, IPv4, and IPv6 data | Member 5 | `ansible/inventory/hosts.yml` | `inventory_validate` via `site.yml` | Every firewall has static IPv4, IPv6, and priority data | Integrated |
+| Docker Ansible connectivity | Member 5 + Member 2 | `ansible/inventory/hosts.yml` | `ansible-playbook ansible/playbooks/site.yml` | Ansible connects to `fw1`, `fw2`, `fw3` through Docker connection plugin | Passed |
+| Ansible is canonical rollout mechanism | Member 5 | `ansible/playbooks/site.yml`, roles | `bash run_wsl_checks.sh` | Inventory graph, syntax check, and ansible-lint pass | Passed in WSL |
+| nftables IPv4 and IPv6 rules | Member 1 + Member 5 | `ansible/roles/firewall/templates/nftables.conf.j2` | Render template, then `nft -c -f /tmp/rendered_fw1.nft` in `fw1` | `inet` ruleset contains IPv4/IPv6 sets and rules | Template syntax passed in Docker |
+| Custom nftables apply module | Member 5 + Member 1 | `ansible/library/nftables_apply.py` | Run firewall role on Debian target | Module validates with `nft -c` before apply | Passed in Docker runtime |
+| Inventory validation fails early | Member 5 | `ansible/library/inventory_validate.py` | Run `site.yml` with invalid data | Playbook fails before configuring nodes | Integrated |
+| Keepalived failover | Member 1 + Member 5 | `ansible/roles/keepalived` | Stop `fw1` after deployment | VIP moves to `fw2`, then `fw3` on double failure | Passed in pytest integration suite |
+| VRRP data is cluster-scoped | Member 5 | `keepalived_cluster` vars | Review inventory/group vars and template | Router ID/VIPs belong to `firewall_cluster_main`, not role defaults | Integrated |
+| Docker HA interface mapping | Member 5 + Member 2 | `ansible/group_vars/firewalls.yml` | `ip -o -4 addr show` in `fw1`/`fw2`/`fw3` | Keepalived and conntrackd bind to management interface `eth2` | Integrated |
+| conntrackd sync | Member 1 + Member 5 | `ansible/roles/conntrackd` | pytest conntrackd tests | Backup nodes receive connection tracking state | Passed in pytest integration suite |
+| Automated QA tests | Member 2 + Member 5 | `tests/`, `pytest.ini`, `ansible/playbooks/run_tests.yml` | `pytest tests` or Ansible run-tests playbook | Rules, failover, conntrackd, IPv6 tests execute | Passed: 79 passed, 0 failed, 11 skipped |
+| CI validation | Member 3 + Member 5 | `.gitlab-ci.yml` | Pipeline run | Python syntax and Compose config jobs pass | Basic validation added |
+| Monitoring diagnostics | Member 4 | `monitoring/`, `scripts/monitor_health.py` | `make monitor` or run monitor script | Health snapshots show VIP owner and node health | Partial |
+| Diagnostic packages installed | Member 4 + Member 5 | `common` role, `docker/DockerFile` | Run common role or inspect image | `tcpdump`, `iftop`, `cbm` available | Integrated |
+| Debian 13 portability | Member 5 + all | Ansible roles without Docker-specific role logic | Run `site.yml` on Debian 13 VM/container | Playbook configures target | Passed in Debian Docker lab; VM/physical proof optional |
+| Molecule role test | Member 5 | `ansible/roles/firewall/molecule/default` | `molecule test` from firewall role | Role renders nftables config idempotently | Passed in WSL with Docker |
 
 ## Current Known Gaps
 
-- `docker-compose.yml`, `DockerFile`, and `.gitlab-ci.yml` are still empty.
-- Real nftables, Keepalived, and conntrackd behavior must be validated on Linux, not native Windows.
-- The Keepalived password currently has a lab default and should be replaced with Ansible Vault before final submission.
-- Molecule requires Linux because it depends on modules unavailable on native Windows.
-- Use `bash run_wsl_checks.sh` from the repository root for inventory, syntax, and lint checks. The script sets `PYTHONNOUSERSITE=1` to reduce duplicate collection warnings from overlapping global and virtualenv Ansible paths.
+- Docker is now reachable from the user's WSL environment, and Molecule passes there.
+- `docker compose up -d --build` now builds the firewall/client images and starts the project containers.
+- End-to-end Ansible deployment into the running Compose topology is recorded and passing.
+- Native Windows Ansible still fails because of locale/path issues. Run Ansible checks from WSL or Linux.
+- Docker IPv6 is still not fully enabled in Compose; Ansible renders IPv6 rules, but the Keepalived IPv6 VIP is disabled in Docker and IPv6 connectivity tests may skip.
+- Real nftables apply, Keepalived failover, and conntrackd sync passed privileged Docker runtime validation.
+- Monitoring dashboard/alerts from Aisana's branch still need cleanup before final integration, especially secrets and hardcoded paths.
+
+## Recommended Validation Order
+
+```bash
+bash run_wsl_checks.sh
+cd ansible/roles/firewall && molecule test
+cd ../../..
+docker compose config --quiet
+docker compose up -d --build
+ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
+ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/run_tests.yml
+```
+
+Latest recorded Docker/WSL integration result:
+
+```text
+79 passed, 0 failed, 11 skipped, 90 total
+pytest exit: 0
+```

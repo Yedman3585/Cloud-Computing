@@ -1,7 +1,10 @@
 ---
 - name: Validate firewall inventory contract
-  hosts: localhost
+  hosts: firewalls
   gather_facts: false
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/firewalls.yml
   tasks:
     - name: Validate firewall inventory and rule references
       inventory_validate:
@@ -9,12 +12,18 @@
         firewall_hostvars: "{{ hostvars }}"
         firewall_objects: "{{ firewall_objects }}"
         firewall_rules: "{{ firewall_rules }}"
+        keepalived_cluster: "{{ keepalived_cluster }}"
         required_firewall_count: "{{ firewall_required_node_count }}"
       run_once: true
+      delegate_to: localhost
+      become: false
 
 - name: Configure scalable firewall nodes
   hosts: firewalls
   become: true
+  vars_files:
+    - ../group_vars/all.yml
+    - ../group_vars/firewalls.yml
   roles:
     - common
     - firewall

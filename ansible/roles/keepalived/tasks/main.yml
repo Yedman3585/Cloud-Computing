@@ -1,4 +1,13 @@
 ---
+- name: Ensure keepalived configuration directory exists
+  become: true
+  ansible.builtin.file:
+    path: /etc/keepalived
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
 - name: Render keepalived VRRP configuration
   become: true
   ansible.builtin.template:
@@ -15,3 +24,22 @@
     name: keepalived
     state: started
     enabled: true
+  when: keepalived_service_mode == "service"
+
+- name: Check keepalived process in init script mode
+  become: true
+  ansible.builtin.command:
+    cmd: pgrep keepalived
+  register: keepalived_process_check
+  failed_when: false
+  changed_when: false
+  when: keepalived_service_mode == "init_script"
+
+- name: Start keepalived in init script mode
+  become: true
+  ansible.builtin.command:
+    cmd: /etc/init.d/keepalived start
+  changed_when: true
+  when:
+    - keepalived_service_mode == "init_script"
+    - keepalived_process_check.rc != 0

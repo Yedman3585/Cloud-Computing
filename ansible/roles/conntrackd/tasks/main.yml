@@ -1,4 +1,18 @@
 ---
+- name: Ensure conntrackd directories exist
+  become: true
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "{{ item.mode }}"
+  loop:
+    - path: /etc/conntrackd
+      mode: "0755"
+    - path: /var/log/conntrackd
+      mode: "0755"
+
 - name: Render conntrackd synchronization configuration
   become: true
   ansible.builtin.template:

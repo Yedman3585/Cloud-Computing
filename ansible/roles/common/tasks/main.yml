@@ -12,3 +12,4 @@
     name: rsyslog
     state: started
     enabled: true
+  when: common_manage_rsyslog_service | bool

@@ -1,6 +1,16 @@
 ---
-- name: Restart keepalived
+- name: Restart keepalived via service
   become: true
   ansible.builtin.service:
     name: keepalived
     state: restarted
+  listen: Restart keepalived
+  when: keepalived_service_mode == "service"
+
+- name: Restart keepalived via init script
+  become: true
+  ansible.builtin.command:
+    cmd: /etc/init.d/keepalived restart
+  changed_when: true
+  listen: Restart keepalived
+  when: keepalived_service_mode == "init_script"

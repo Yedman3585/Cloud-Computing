@@ -1,3 +1,4 @@
 ---
 common_packages: []
 common_diagnostic_packages: []
+common_manage_rsyslog_service: true

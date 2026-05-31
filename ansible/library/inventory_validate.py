@@ -87,6 +87,15 @@ def validate_nodes(
                 errors.append(f"{name}: duplicate keepalived_priority {priority}")
             seen_priorities.add(priority)
 
+        if "conntrackd_sync_peer_ipv4" in data:
+            try:
+                ipaddress.ip_address(str(data["conntrackd_sync_peer_ipv4"]))
+            except ValueError as exc:
+                errors.append(
+                    f"{name}: invalid conntrackd_sync_peer_ipv4 "
+                    f"{data['conntrackd_sync_peer_ipv4']!r}: {exc}"
+                )
+
 
 def validate_objects(objects: dict[str, Any], errors: list[str]) -> None:
     for object_name, object_data in objects.items():
@@ -133,6 +142,34 @@ def validate_rules(rules: list[dict[str, Any]], objects: dict[str, Any], errors:
             errors.append(f"rule {rule_name}: ports are only valid for tcp/udp rules")
 
 
+def validate_keepalived_cluster(cluster: dict[str, Any], errors: list[str]) -> None:
+    if not cluster:
+        errors.append("keepalived_cluster must be defined")
+        return
+
+    router_id = cluster.get("virtual_router_id")
+    try:
+        router_id_number = int(router_id)
+    except (TypeError, ValueError):
+        errors.append("keepalived_cluster.virtual_router_id must be an integer")
+    else:
+        if router_id_number < 1 or router_id_number > 255:
+            errors.append("keepalived_cluster.virtual_router_id must be between 1 and 255")
+
+    if not cluster.get("interface"):
+        errors.append("keepalived_cluster.interface must be defined")
+
+    for field, family in (("vip_ipv4", 4), ("vip_ipv6", 6)):
+        value = cluster.get(field)
+        if not value:
+            errors.append(f"keepalived_cluster.{field} must be defined")
+            continue
+        try:
+            _validate_ip_network(str(value), family)
+        except ValueError as exc:
+            errors.append(f"keepalived_cluster.{field} is invalid: {exc}")
+
+
 def main() -> None:
     from ansible.module_utils.basic import AnsibleModule
 
@@ -142,6 +179,7 @@ def main() -> None:
             firewall_hostvars=dict(type="dict", required=True),
             firewall_objects=dict(type="dict", required=True),
             firewall_rules=dict(type="list", elements="dict", required=True),
+            keepalived_cluster=dict(type="dict", required=False, default={}),
             required_firewall_count=dict(type="int", default=3),
         ),
         supports_check_mode=True,
@@ -151,12 +189,14 @@ def main() -> None:
     hostvars = module.params["firewall_hostvars"]
     objects = module.params["firewall_objects"]
     rules = module.params["firewall_rules"]
+    cluster = module.params["keepalived_cluster"]
     required_count = module.params["required_firewall_count"]
 
     errors: list[str] = []
     validate_nodes(names, hostvars, required_count, errors)
     validate_objects(objects, errors)
     validate_rules(rules, objects, errors)
+    validate_keepalived_cluster(cluster, errors)
 
     if errors:
         module.fail_json(msg="inventory validation failed", errors=errors)

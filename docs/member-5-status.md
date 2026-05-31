@@ -4,13 +4,16 @@
 
 Member 5 is responsible for the orchestration and integration layer of the scalable high-availability firewall project. This part connects the infrastructure, firewall rules, high-availability services, and validation workflow through Ansible.
 
-This document describes **Stage 1** of Member 5 work. Stage 1 means the work that can be completed independently before the other team members finish Docker Compose topology, real traffic tests, CI/CD, Kubernetes, and monitoring integration.
+This document describes Member 5 work across two phases:
+
+- **Stage 1**: the independent Ansible foundation that can be completed without the final work of other members.
+- **Stage 2**: integration with teammate updates, including Docker Compose topology, pytest tests, and runtime validation.
 
 Current conclusion:
 
-**Stage 1 is complete.**
+**Stage 1 is complete. Stage 2 core integration is complete in the Docker/WSL lab.**
 
-The Ansible foundation is now structured, tested, and ready to be used as the integration base for the rest of the project.
+The Ansible foundation is structured and tested. The teammate Docker topology, runtime deployment, Keepalived failover tests, conntrackd checks, nftables ruleset checks, and report generation are now connected and passing in the Docker/WSL lab.
 
 ## What Has Been Done
 
@@ -73,6 +76,17 @@ Each firewall node has:
 
 This follows the professor's feedback: name-based firewall configuration should use static hostname, IPv4, and IPv6 data from the Ansible inventory instead of runtime DNS resolution.
 
+The inventory has now been aligned with the Docker test topology:
+
+- management network: `172.20.0.0/24`
+- frontend network: `172.21.0.0/24`
+- backend network: `172.22.0.0/24`
+- cluster VIP: `172.20.0.100`
+
+This lets the same Ansible roles use static host data in both the Docker lab and future Debian VM or physical-host deployments.
+
+In the Docker lab, Ansible uses the `community.docker.docker` connection plugin because Docker bridge IPs are not always reachable directly from WSL. VM and physical deployments should use a separate SSH-based inventory while keeping the same roles.
+
 ### Ansible Role Structure
 
 The following roles have been created or completed:
@@ -89,6 +103,8 @@ The `firewall` role renders nftables rules from inventory/group variables.
 The `keepalived` role renders VRRP configuration for failover.
 
 The `conntrackd` role renders connection state synchronization configuration.
+
+Keepalived cluster-level settings are stored in `keepalived_cluster` instead of being loose global variables. This keeps values like `virtual_router_id`, VIPs, and VRRP interface attached to a specific firewall cluster.
 
 ### nftables Integration
 
@@ -173,6 +189,26 @@ Current successful result:
 Passed: 0 failure(s), 0 warning(s)
 ```
 
+### Full Docker Integration Testing
+
+The full Docker/WSL integration path now passes:
+
+- Docker Compose builds and starts the firewall, client, and backend containers.
+- `ansible/playbooks/site.yml` deploys common packages, nftables, Keepalived, and conntrackd to `fw1`, `fw2`, and `fw3`.
+- Keepalived runs on all three firewalls.
+- The IPv4 VIP `172.20.0.100` is assigned to the active firewall.
+- conntrackd runs and recovers from stale Docker runtime lock files during restart tests.
+- `ansible/playbooks/run_tests.yml` runs the pytest suite and generates HTML/JSON reports.
+
+Current successful integration result:
+
+```text
+79 passed, 0 failed, 11 skipped, 90 total
+pytest exit: 0
+```
+
+The skipped tests are IPv6 connectivity checks skipped because Docker IPv6 is not fully enabled in the local Docker Compose runtime. IPv6 rule rendering is still validated by nftables ruleset tests.
+
 ## Main Tools Used
 
 ### Ansible
@@ -248,12 +284,37 @@ Used for:
 
 ### Docker
 
-Docker is used by Molecule for isolated test containers.
+Docker is used by Molecule and by the project integration lab.
 
 Used for:
 
 - running Debian 13 test instances
 - validating role behavior without depending on a physical machine
+- running the three-firewall topology with frontend clients and backend servers
+
+### Docker Compose
+
+Docker Compose defines the integration topology.
+
+Used for:
+
+- three privileged firewall containers: `fw1`, `fw2`, `fw3`
+- frontend test clients
+- backend web servers
+- management, frontend, and backend networks
+- optional test runner container
+
+### pytest and Scapy
+
+pytest is used for automated integration checks. Scapy is available for synthetic traffic generation.
+
+Used for:
+
+- firewall rule checks
+- failover checks
+- conntrackd checks
+- IPv6 checks
+- traffic generation during later integration testing
 
 ### ansible-lint
 
@@ -277,7 +338,30 @@ The most important Member 5 files are shown below.
 |-- run_wsl_checks.sh
 |-- docs/
 |   |-- member-5-status.md
-|   `-- requirements-validation.md
+|   |-- requirements-validation.md
+|   `-- team-integration-notes.md
+|-- docker-compose.yml
+|-- Makefile
+|-- pytest.ini
+|-- requirements.txt
+|-- docker/
+|   |-- DockerFile
+|   |-- Dockerfile.client
+|   |-- entrypoint.sh
+|   |-- supervisord.conf
+|   `-- nginx/
+|       |-- server1.html
+|       `-- server2.html
+|-- tests/
+|   |-- conftest.py
+|   |-- test_conntrackd.py
+|   |-- test_failover.py
+|   |-- test_ipv6.py
+|   |-- test_nftables_rules.py
+|   `-- traffic_generator.py
+|-- scripts/
+|   |-- generate_report.py
+|   `-- monitor_health.py
 `-- ansible/
     |-- ansible.cfg
     |-- requirements.yml
@@ -292,7 +376,8 @@ The most important Member 5 files are shown below.
     |   `-- nftables_apply.py
     |-- module_utils/
     |-- playbooks/
-    |   `-- site.yml
+    |   |-- site.yml
+    |   `-- run_tests.yml
     `-- roles/
         |-- common/
         |   |-- defaults/
@@ -409,32 +494,47 @@ Verified:
 - WSL playbook syntax check passes
 - ansible-lint passes with zero failures and zero warnings
 - Molecule firewall role test passes
+- Docker Compose builds the firewall and client images
+- Docker Compose starts the firewall, client, and backend server containers
+- Rendered nftables syntax passes `nft -c` inside `fw1`
 
 ### Step 7: Documentation and Requirement Mapping
 
-Status: Partially Done
+Status: Done
 
 Implemented:
 
 - `docs/requirements-validation.md`
 - this Member 5 status report
+- `docs/team-integration-notes.md`
 
-Still needed:
-
-- update requirement statuses after full team integration
-- add final test evidence from Docker Compose, failover tests, and CI/CD
+The documents should still be reviewed again after the final team merge, but the Member 5 Docker/WSL runtime evidence is now recorded.
 
 ### Step 8: Final Integration Features
 
-Status: Pending
+Status: Done for Member 5 Docker/WSL integration scope
+
+Implemented:
+
+- imported Docker Compose topology from teammate updates
+- aligned Ansible inventory with Docker management, frontend, and backend networks
+- moved VRRP values into the cluster-scoped `keepalived_cluster` variable
+- connected pytest integration tests and report scripts
+- added `ansible/playbooks/run_tests.yml`
+- added basic CI validation jobs
+- fixed Docker shell entrypoint line endings for Windows/WSL builds
+- added `.gitattributes` to keep Linux-facing files LF-normalized
+- deployed the full Ansible site playbook into the running Docker Compose topology
+- verified Keepalived failover behavior through pytest
+- verified conntrackd process, config, socket, stats, and sync-related checks through pytest
+- verified nftables ruleset content, IPv4 management access, and IPv6 rule rendering through pytest
+- generated HTML and JSON integration reports in `test_results/`
 
 Still needed:
 
 - Ansible Vault for secrets
 - optional dynamic inventory plugin if required by the final grading scope
-- full deployment test against real Docker Compose topology
-- real Keepalived failover test
-- real conntrackd synchronization test
+- final deployment proof against Debian 13 VM or physical hosts if required
 - final commit/push/merge workflow
 
 ## Progress Summary
@@ -447,32 +547,26 @@ Fully completed:
 - Step 4
 - Step 5
 - Step 6
-
-Partially completed:
-
 - Step 7
-
-Pending:
-
 - Step 8
 
 Current progress:
 
 ```text
-6.5 / 8 major Member 5 steps complete
+8 / 8 major Member 5 steps complete for the Docker/WSL lab scope
 ```
 
 ## Current Conclusion
 
 Stage 1 of Member 5 work is complete.
 
-The Ansible foundation is now ready and validated independently from the other project parts.
+Stage 2 core integration is complete for the current Docker/WSL lab. The Ansible foundation now deploys into the Docker topology and the integration suite passes with `79 passed`, `0 failed`, and `11 skipped`.
 
-The remaining work is mostly final integration:
+The remaining work is mostly final project polish and cross-member integration:
 
-- Docker Compose infrastructure from Member 2
 - final nftables, Keepalived, and conntrackd behavior from Member 1
 - CI/CD from Member 3
 - monitoring and logging from Member 4
+- optional VM/physical-host validation if required by the professor
 
-Member 5's current work is stable enough to act as the integration base for the rest of the project.
+Member 5's current work is stable enough to act as the integration base for the rest of the project, and the Docker/WSL runtime proof is now passing.

@@ -1,7 +1,12 @@
 ---
-keepalived_interface: eth0
-keepalived_virtual_router_id: 55
-keepalived_advert_int: 1
-keepalived_auth_pass: fwha2026
-keepalived_vip_ipv4: 10.0.0.100/24
-keepalived_vip_ipv6: fd00:5::100/64
+keepalived_service_mode: service
+keepalived_cluster:
+  name: default_cluster
+  instance_name: VI_1
+  interface: eth0
+  virtual_router_id: null
+  advert_int: 1
+  auth_pass: changeme
+  vip_ipv4: null
+  vip_ipv6: null
+  enable_ipv6_vip: false

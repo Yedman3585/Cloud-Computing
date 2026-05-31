@@ -13,7 +13,8 @@ __pycache__/
 *.retry
 
 generated*.nft
+test_results/
 *.log
 *.pcap
 *.pcapng
-
+*.xml
