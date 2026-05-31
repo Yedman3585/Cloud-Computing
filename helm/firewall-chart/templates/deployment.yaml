@@ -20,7 +20,6 @@ spec:
     spec:
       containers:
         - name: firewall
-
           image: firewall:latest
           imagePullPolicy: Never
 
@@ -31,6 +30,30 @@ spec:
 
           securityContext:
             privileged: true
+
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+
+          livenessProbe:
+            exec:
+              command:
+                - cat
+                - /etc/nftables.conf
+            initialDelaySeconds: 10
+            periodSeconds: 30
+
+          readinessProbe:
+            exec:
+              command:
+                - cat
+                - /etc/nftables.conf
+            initialDelaySeconds: 5
+            periodSeconds: 10
 
           ports:
             - containerPort: 22
