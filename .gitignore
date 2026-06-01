@@ -1,6 +1,8 @@
 .idea/
 .venv/
 .venv_linux/
+venv/
+.env
 __pycache__/
 *.py[cod]
 
@@ -14,6 +16,7 @@ __pycache__/
 
 generated*.nft
 test_results/
+monitoring/data/
 *.log
 *.pcap
 *.pcapng

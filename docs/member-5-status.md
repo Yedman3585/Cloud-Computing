@@ -304,6 +304,19 @@ Used for:
 - management, frontend, and backend networks
 - optional test runner container
 
+### Kubernetes and Helm
+
+Kubernetes and Helm are optional deployment/demo tooling imported from teammate updates.
+
+Used for:
+
+- static Kubernetes manifests under `k8s/`
+- Helm chart under `helm/firewall-chart/`
+- rollout helper `k8s/rollout.sh`
+- resource check helpers in `scripts/check_*.py`
+
+These files do not replace the tested Ansible/Docker deployment path.
+
 ### pytest and Scapy
 
 pytest is used for automated integration checks. Scapy is available for synthetic traffic generation.
@@ -529,12 +542,16 @@ Implemented:
 - verified conntrackd process, config, socket, stats, and sync-related checks through pytest
 - verified nftables ruleset content, IPv4 management access, and IPv6 rule rendering through pytest
 - generated HTML and JSON integration reports in `test_results/`
+- selectively imported optional Kubernetes/Helm files from teammate updates
+- selectively imported sanitized monitoring dashboard and metrics scripts
 
 Still needed:
 
 - Ansible Vault for secrets
 - optional dynamic inventory plugin if required by the final grading scope
 - final deployment proof against Debian 13 VM or physical hosts if required
+- optional Kubernetes/Helm runtime proof if required by the final grading scope
+- final monitoring dashboard/log/alert proof with Member 4
 - final commit/push/merge workflow
 
 ## Progress Summary

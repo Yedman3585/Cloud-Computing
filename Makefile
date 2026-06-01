@@ -22,7 +22,8 @@ export VIRTUAL_IP SERVER1_IP SERVER2_IP
 export REPORT_DIR
 
 .PHONY: all up down restart build deploy test test-rules test-failover test-ipv6 \
-	test-conntrackd test-traffic monitor report logs status clean clean-images help
+	test-conntrackd test-traffic monitor monitor-dashboard monitor-metrics \
+	k8s-rollout k8s-check report logs status clean clean-images help
 
 all: help
 
@@ -72,6 +73,22 @@ monitor: $(REPORT_DIR)
 		--interval 5 \
 		--output $(REPORT_DIR)/health.json
 
+monitor-dashboard:
+	python3 monitoring/dashboard/app.py
+
+monitor-metrics:
+	python3 monitoring/scripts/collect_metrics.py
+	python3 monitoring/scripts/view_metrics.py
+
+k8s-rollout:
+	bash k8s/rollout.sh
+
+k8s-check:
+	python3 scripts/check_deployment.py
+	python3 scripts/check_firewall.py
+	python3 scripts/check_service.py
+	python3 scripts/check_hpa.py
+
 status:
 	@python3 $(SCRIPTS_DIR)/monitor_health.py --once 2>/dev/null || true
 	@echo ""
@@ -113,5 +130,9 @@ help:
 	@echo "  make status          show health and VIP owner"
 	@echo "  make test            run full pytest suite"
 	@echo "  make report          generate test report"
+	@echo "  make monitor-dashboard  start Flask monitoring dashboard"
+	@echo "  make monitor-metrics    collect and print local metrics"
+	@echo "  make k8s-rollout        deploy optional Helm/Kubernetes lab"
+	@echo "  make k8s-check          check optional Kubernetes resources"
 	@echo "  make clean           stop stack and remove volumes"
 	@echo ""

@@ -12,8 +12,8 @@ The main rule for integration is simple: Ansible remains the canonical rollout l
 |---|---|---|
 | `origin/said-testing` | Docker Compose topology, firewall/client images, pytest tests, helper scripts | Imported selectively and adapted to the Ansible inventory contract |
 | `origin/iliyas-nftables` | nftables prototype, two-node Keepalived/conntrackd configs, shell tests, Kubernetes examples | Reviewed read-only; not merged directly because it would delete the Member 5 Ansible structure |
-| `origin/monitoring-aisana` | Monitoring-oriented work | Still needs a separate review before wiring into Ansible roles |
-| `origin/ci/cd-setup` and related DevOps branches | CI/CD and deployment material | Still needs a separate review with Member 3 |
+| `origin/monitoring-aisana` | Monitoring dashboard, metrics scripts, integrity check, Telegram alert prototype | Sanitized and imported only source code; excluded virtualenv, pycache, and hardcoded Telegram credentials |
+| `origin/ci/cd-setup` and related DevOps branches | CI/CD and deployment material | Reviewed; existing GitLab validation kept because it matches the current Ansible/Docker baseline |
 
 ## Integrated From Member 2
 
@@ -105,11 +105,23 @@ Member 3 and Member 5 should finish:
 
 Member 4 and Member 5 should finish:
 
-- monitoring role or playbook integration
+- monitoring role or playbook integration if the dashboard must be deployed automatically
 - rsyslog/log parser deployment
 - tcpdump capture rotation
-- dashboard or alert deployment
 - validation that allowed and blocked traffic appears in logs and reports
+- optional Telegram alert setup using environment variables, not committed secrets
+
+## Imported After Main Baseline
+
+After the green `main` baseline was uploaded, new teammate updates were fetched again. They were not raw-merged because the branches still replaced the working role structure with prototype files. The following safe pieces were integrated selectively:
+
+- optional Helm chart under `helm/firewall-chart/`
+- optional static Kubernetes manifests under `k8s/`
+- Kubernetes check helpers under `scripts/check_*.py`
+- sanitized monitoring dashboard and metrics scripts under `monitoring/`
+- Makefile targets for optional Kubernetes and monitoring workflows
+
+The Docker/Ansible path remains the canonical tested deployment path.
 
 ## Validation Commands
 

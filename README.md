@@ -106,6 +106,8 @@ The full project still needs final cross-member polish: monitoring integration, 
 - Keepalived runs on all three firewall nodes and moves the VIP during failover tests.
 - conntrackd runtime checks pass after stale Docker lock/socket recovery was added to the test setup.
 - `ansible/playbooks/run_tests.yml` passes with `79 passed`, `0 failed`, and `11 skipped`.
+- Optional Helm/Kubernetes support files have been imported under `helm/` and `k8s/`.
+- Sanitized monitoring dashboard and metric scripts have been imported under `monitoring/`.
 
 ### Still Needed
 
@@ -113,6 +115,8 @@ The full project still needs final cross-member polish: monitoring integration, 
 - Add or finalize a dynamic inventory plugin if the final scope requires Docker/Kubernetes/physical inventory discovery.
 - Run the full playbook against a Debian 13 VM or real host to prove portability.
 - Final-review nftables rules from Member 1.
+- Validate optional Helm/Kubernetes deployment if it remains in the final scope.
+- Validate the final monitoring dashboard, metrics, logs, and alerts with Member 4.
 - Update the requirement matrix after every teammate's final implementation is merged.
 - Prepare final commit, push, and merge workflow with the team.
 
@@ -299,8 +303,8 @@ docker ps
 
 - Docker Compose infrastructure builds and starts, and Ansible deployment, failover, and integration tests pass in WSL/Docker.
 - `.gitlab-ci.yml` currently contains basic validation jobs only; Member 3 may still extend it.
-- Kubernetes or Helm deployment files still need the final Member 3 implementation.
-- Monitoring scripts exist, but the final Member 4 dashboard, log flow, alerting, and packet capture integration are not complete.
+- Kubernetes or Helm support files now exist, but runtime proof still depends on the final Member 3 scope.
+- Monitoring scripts and dashboard exist, but the final Member 4 log flow, alerting, and packet capture proof is not complete.
 - Real nftables application, Keepalived failover, and conntrackd synchronization have passed privileged Docker integration tests.
 - The current Molecule test validates role rendering and idempotence, not full kernel-level firewall behavior.
 
