@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     conntrack \
     conntrackd \
     rsyslog \
+    ulogd2 \
     iproute2 \
     iputils-ping \
     iputils-arping \

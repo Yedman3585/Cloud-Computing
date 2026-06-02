@@ -1,19 +1,29 @@
 #!/bin/bash
-
 set -e
 
 echo "[entrypoint] Starting firewall node: ${HOSTNAME}"
 
 echo 1 > /proc/sys/net/ipv4/ip_forward
 echo 1 > /proc/sys/net/ipv6/conf/all/forwarding 2>/dev/null || true
-
 echo 1 > /proc/sys/net/ipv4/ip_nonlocal_bind 2>/dev/null || true
 
 # Create log directories
-mkdir -p /var/log/supervisor
-mkdir -p /var/log/nftables
-mkdir -p /var/log/keepalived
-mkdir -p /var/log/conntrackd
+mkdir -p /var/log/supervisor /var/log/nftables /var/log/keepalived /var/log/conntrackd /var/log/firewall
+
+# ulogd config: NFLOG group 1 -> /var/log/firewall/dropped.log
+cat > /etc/ulogd.conf << 'ULOGDEOF'
+[global]
+logfile="/var/log/ulogd.log"
+loglevel=5
+stack=log1:NFLOG,base1:BASE,ifi1:IFINDEX,ip2str1:IP2STR,print1:PRINTPKT,emu1:LOGEMU
+
+[log1]
+group=1
+
+[emu1]
+file="/var/log/firewall/dropped.log"
+sync=1
+ULOGDEOF
 
 if [ ! -f /etc/nftables.conf ]; then
     echo "[entrypoint] No nftables.conf found, writing minimal default"
@@ -25,25 +35,21 @@ table inet filter {
     chain input {
         type filter hook input priority 0;
         policy drop;
-        log prefix "DROP: " drop
 
         ct state established,related accept
         iif lo accept
 
-        # Allow SSH so Ansible can connect
         tcp dport 22 accept
-
-        # Allow ICMP / ICMPv6
         ip protocol icmp accept
         ip6 nexthdr icmpv6 accept
-
-        # Allow VRRP (Keepalived)
         ip protocol vrrp accept
+
+        log prefix "DROP-IN " group 1 counter drop
     }
     chain forward {
         type filter hook forward priority 0;
         policy drop;
-        log prefix "DROP: " drop
+        log prefix "DROP-FWD " group 1 counter drop
     }
     chain output {
         type filter hook output priority 0;
