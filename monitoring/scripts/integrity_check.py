@@ -14,7 +14,7 @@ def calculate_hash(path: Path) -> str | None:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Check rendered firewall rules integrity")
-    parser.add_argument("--rules-file", default="generated_ipv4.nft")
+    parser.add_argument("--rules-file", default="/etc/nftables.conf")
     parser.add_argument("--state-file", default="monitoring/data/rules_hash.json")
     args = parser.parse_args()
 
