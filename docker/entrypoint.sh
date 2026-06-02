@@ -25,6 +25,7 @@ table inet filter {
     chain input {
         type filter hook input priority 0;
         policy drop;
+        log prefix "DROP: " drop
 
         ct state established,related accept
         iif lo accept
@@ -42,6 +43,7 @@ table inet filter {
     chain forward {
         type filter hook forward priority 0;
         policy drop;
+        log prefix "DROP: " drop
     }
     chain output {
         type filter hook output priority 0;

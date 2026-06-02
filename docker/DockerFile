@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     keepalived \
     conntrack \
     conntrackd \
+    rsyslog \
     iproute2 \
     iputils-ping \
     iputils-arping \
