@@ -22,16 +22,15 @@ def get_connections():
 
 def analyze_connections():
     connections = get_connections()
-    
-    if connections is None:
-        print("Demo mode: showing sample data")
-        return {
-            'total': 156,
-            'by_protocol': {'tcp': 142, 'udp': 14},
-            'by_state': {'ESTABLISHED': 89, 'TIME_WAIT': 52, 'CLOSE_WAIT': 15},
-            'by_dest_port': {443: 67, 80: 45, 22: 23}
-        }
-    
+  
+	if connections is None:
+	    return {
+	        'total': 0,
+	        'by_protocol': {},
+	        'by_state': {},
+	        'by_dest_port': {},
+	        'message': 'conntrack not available in this environment'
+	    }    
     stats = {
         'total': len(connections),
         'by_protocol': defaultdict(int),
