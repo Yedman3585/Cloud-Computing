@@ -22,15 +22,16 @@ def get_connections():
 
 def analyze_connections():
     connections = get_connections()
-  
-	if connections is None:
-	    return {
-	        'total': 0,
-	        'by_protocol': {},
-	        'by_state': {},
-	        'by_dest_port': {},
-	        'message': 'conntrack not available in this environment'
-	    }    
+    
+    if connections is None:
+        return {
+            'total': 0,
+            'by_protocol': {},
+            'by_state': {},
+            'by_dest_port': {},
+            'message': 'conntrack not available'
+        }
+    
     stats = {
         'total': len(connections),
         'by_protocol': defaultdict(int),
@@ -58,12 +59,3 @@ if __name__ == "__main__":
     print("\nBy protocol:")
     for proto, count in stats['by_protocol'].items():
         print(f"   {proto}: {count}")
-    
-    print("\nBy state:")
-    for state, count in stats['by_state'].items():
-        print(f"   {state}: {count}")
-    
-    print("\nTop destination ports:")
-    top_ports = sorted(stats['by_dest_port'].items(), key=lambda x: x[1], reverse=True)[:5]
-    for port, count in top_ports:
-        print(f"   Port {port}: {count} connections")
