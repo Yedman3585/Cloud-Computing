@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import sys
-sys.path.append('/home/aisana/20261_group_05/monitoring/analyzers')
-import log_analyzer
 from flask import Flask, jsonify, render_template
 
 
@@ -22,7 +20,7 @@ def index():
 
 @app.route('/api/blocked')
 def get_blocked():
-    return jsonify(log_analyzer.analyze_logs('/var/log/firewall/fw1.log'))
+    return jsonify(log_analyzer.analyze_logs('/var/log/firewall/dropped.log'))
 
 @app.route("/api/connections")
 def get_connections():

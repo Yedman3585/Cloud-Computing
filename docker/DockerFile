@@ -41,7 +41,8 @@ RUN pip3 install --break-system-packages \
     pytest-html \
     pytest-json-report \
     paramiko \
-    requests
+    requests \
+    flask
 
 RUN mkdir -p /var/run/sshd \
     && echo 'root:firewall' | chpasswd \
