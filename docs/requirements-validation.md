@@ -19,7 +19,7 @@ This document is the shared quality contract for Topic 5.2. It maps each require
 | Automated QA tests | Member 2 + Member 5 | `tests/`, `pytest.ini`, `ansible/playbooks/run_tests.yml` | `pytest tests` or Ansible run-tests playbook | Rules, failover, conntrackd, IPv6 tests execute | Passed: 79 passed, 0 failed, 11 skipped |
 | CI validation | Member 3 + Member 5 | `.gitlab-ci.yml` | Pipeline run | Python syntax and Compose config jobs pass | Basic validation added |
 | Kubernetes/Helm optional lab | Member 3 + Member 5 | `k8s/`, `helm/firewall-chart/`, `scripts/check_*.py` | `make k8s-rollout` then `make k8s-check` | Firewall chart deploys and resources are visible | Imported, needs Kubernetes runtime proof |
-| Monitoring diagnostics | Member 4 + Member 5 | `monitoring/`, `scripts/monitor_health.py` | `make monitor`, `make monitor-dashboard`, or `make monitor-metrics` | Health snapshots, metrics, and dashboard endpoints work | Imported, needs final monitoring deployment proof |
+| Monitoring diagnostics | Member 4 + Member 5 | `monitoring/`, `scripts/monitor_health.py`, Ansible NFLOG drop rules | `make monitor`, `make monitor-dashboard`, or `make monitor-metrics` | Health snapshots, dropped-packet logs, metrics, and dashboard endpoints work | Integrated, needs final live dashboard/log proof |
 | Diagnostic packages installed | Member 4 + Member 5 | `common` role, `docker/DockerFile` | Run common role or inspect image | `tcpdump`, `iftop`, `cbm` available | Integrated |
 | Debian 13 portability | Member 5 + all | Ansible roles without Docker-specific role logic | Run `site.yml` on Debian 13 VM/container | Playbook configures target | Passed in Debian Docker lab; VM/physical proof optional |
 | Molecule role test | Member 5 | `ansible/roles/firewall/molecule/default` | `molecule test` from firewall role | Role renders nftables config idempotently | Passed in WSL with Docker |
@@ -33,7 +33,7 @@ This document is the shared quality contract for Topic 5.2. It maps each require
 - Docker IPv6 is still not fully enabled in Compose; Ansible renders IPv6 rules, but the Keepalived IPv6 VIP is disabled in Docker and IPv6 connectivity tests may skip.
 - Real nftables apply, Keepalived failover, and conntrackd sync passed privileged Docker runtime validation.
 - Kubernetes/Helm material is imported as optional lab support but still needs real Kubernetes runtime proof.
-- Monitoring dashboard and scripts are imported without committed secrets; final dashboard/log/alert deployment still needs proof.
+- Monitoring dashboard and scripts are imported without committed secrets, and Ansible now keeps NFLOG drop logging in the deployed ruleset; final dashboard/log/alert deployment still needs proof.
 
 ## Recommended Validation Order
 

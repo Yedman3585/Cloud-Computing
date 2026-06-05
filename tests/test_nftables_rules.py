@@ -101,3 +101,16 @@ class TestRuleContent:
         assert has_icmpv6_rule(ruleset(container)), (
             f"Missing ICMPv6 accept rule on {container}."
         )
+
+    @pytest.mark.parametrize("container", FW_CONTAINERS)
+    def test_drop_logging_rules_present(self, container, ensure_all_running):
+        output = ruleset(container)
+        assert 'log prefix "DROP-IN "' in output, (
+            f"Missing input drop logging rule on {container}."
+        )
+        assert 'log prefix "DROP-FWD "' in output, (
+            f"Missing forward drop logging rule on {container}."
+        )
+        assert "group 1" in output, (
+            f"Missing NFLOG group 1 drop logging target on {container}."
+        )

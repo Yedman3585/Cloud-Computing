@@ -304,7 +304,7 @@ docker ps
 - Docker Compose infrastructure builds and starts, and Ansible deployment, failover, and integration tests pass in WSL/Docker.
 - `.gitlab-ci.yml` currently contains basic validation jobs only; Member 3 may still extend it.
 - Kubernetes or Helm support files now exist, but runtime proof still depends on the final Member 3 scope.
-- Monitoring scripts and dashboard exist, but the final Member 4 log flow, alerting, and packet capture proof is not complete.
+- Monitoring scripts, dashboard, and Ansible NFLOG drop rules exist, but the final Member 4 log flow, alerting, and packet capture proof is not complete.
 - Real nftables application, Keepalived failover, and conntrackd synchronization have passed privileged Docker integration tests.
 - The current Molecule test validates role rendering and idempotence, not full kernel-level firewall behavior.
 

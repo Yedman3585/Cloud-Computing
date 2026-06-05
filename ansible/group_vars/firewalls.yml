@@ -10,6 +10,7 @@ common_packages:
   - python3-yaml
   - python3-jinja2
   - rsyslog
+  - ulogd2
   - iproute2
   - iputils-ping
   - procps
@@ -25,6 +26,10 @@ common_manage_rsyslog_service: false
 firewall_nftables_conf_path: /etc/nftables.conf
 firewall_nftables_apply_rules: true
 firewall_nftables_manage_service: false
+firewall_drop_logging_enabled: true
+firewall_nflog_group: 1
+firewall_input_drop_log_prefix: "DROP-IN "
+firewall_forward_drop_log_prefix: "DROP-FWD "
 
 keepalived_service_mode: init_script
 keepalived_cluster:
