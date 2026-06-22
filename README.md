@@ -89,7 +89,7 @@ The full project still needs final cross-member polish: monitoring integration, 
 - Updated Ansible inventory to match the Docker network topology.
 - Moved VRRP settings into a cluster-scoped `keepalived_cluster` structure.
 - Added pytest-based integration tests and report helper scripts.
-- Added a basic CI validation pipeline.
+- Added an expanded CI validation pipeline for Python syntax, Ansible syntax, Compose config, Kubernetes YAML, Helm template, and monitoring syntax.
 
 ### Verified
 
@@ -302,9 +302,9 @@ docker ps
 ## Known Current Gaps
 
 - Docker Compose infrastructure builds and starts, and Ansible deployment, failover, and integration tests pass in WSL/Docker.
-- `.gitlab-ci.yml` currently contains basic validation jobs only; Member 3 may still extend it.
-- Kubernetes or Helm support files now exist, but runtime proof still depends on the final Member 3 scope.
-- Monitoring scripts and dashboard exist, but the final Member 4 log flow, alerting, and packet capture proof is not complete.
+- `.gitlab-ci.yml` now contains expanded validation jobs; GitLab runner eligibility/tag settings still need to be confirmed if jobs appear stuck without traces.
+- Kubernetes or Helm support files now exist and are covered by template/YAML checks, but runtime proof still depends on the final Member 3 scope.
+- Monitoring scripts, dashboard, and Ansible NFLOG drop rules exist, but the final Member 4 log flow, alerting, and packet capture proof is not complete.
 - Real nftables application, Keepalived failover, and conntrackd synchronization have passed privileged Docker integration tests.
 - The current Molecule test validates role rendering and idempotence, not full kernel-level firewall behavior.
 

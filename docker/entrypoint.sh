@@ -25,8 +25,9 @@ file="/var/log/firewall/dropped.log"
 sync=1
 ULOGDEOF
 
-echo "[entrypoint] Writing default nftables ruleset with NFLOG logging"
-cat > /etc/nftables.conf << 'EOF'
+if [ ! -s /etc/nftables.conf ]; then
+    echo "[entrypoint] Writing default nftables ruleset with NFLOG logging"
+    cat > /etc/nftables.conf << 'EOF'
 #!/usr/sbin/nft -f
 flush ruleset
 
@@ -57,6 +58,9 @@ table inet filter {
     }
 }
 EOF
+else
+    echo "[entrypoint] Preserving existing nftables ruleset"
+fi
 
 # shellcheck disable=SC2145
 echo "[entrypoint] Handing off to: $@"

@@ -50,6 +50,9 @@ table inet filter {
 {% for rule in firewall_rules if rule.chain | default('input') == 'input' %}
 {{ render_rule(rule) }}
 {% endfor %}
+{% if firewall_drop_logging_enabled | default(false) %}
+        log prefix "{{ firewall_input_drop_log_prefix | default('DROP-IN ') }}" group {{ firewall_nflog_group | default(1) }} counter drop
+{% endif %}
     }
 
     chain forward {
@@ -61,6 +64,9 @@ table inet filter {
 {% for rule in firewall_rules if rule.chain | default('input') == 'forward' %}
 {{ render_rule(rule) }}
 {% endfor %}
+{% if firewall_drop_logging_enabled | default(false) %}
+        log prefix "{{ firewall_forward_drop_log_prefix | default('DROP-FWD ') }}" group {{ firewall_nflog_group | default(1) }} counter drop
+{% endif %}
     }
 
     chain output {
