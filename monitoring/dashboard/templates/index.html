@@ -5,10 +5,23 @@
     <title>Firewall Monitoring</title>
     <style>
         body { font-family: monospace; margin: 20px; background: #0a0e1a; color: #00ffcc; }
-        h1 { color: #00ffcc; border-bottom: 1px solid #00ffcc; }
-        .card { background: #111827; padding: 20px; margin: 15px 0; border-radius: 8px; }
-        pre { background: #000; padding: 15px; color: #0f0; overflow-x: auto; border-radius: 5px; }
-        .timestamp { color: #888; font-size: 12px; }
+        h1 { color: #00ffcc; border-bottom: 1px solid #00ffcc; padding-bottom: 8px; }
+        h2 { color: #00ffcc; margin: 0 0 12px; font-size: 16px; }
+        .card { background: #111827; padding: 18px; margin: 15px 0; border-radius: 8px; }
+        .timestamp { color: #888; font-size: 12px; margin-bottom: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        td, th { text-align: left; padding: 4px 8px; border-bottom: 1px solid #1f2937; }
+        th { color: #888; font-weight: normal; }
+        .num { color: #fde047; text-align: right; }
+        .empty { color: #666; }
+        .bw-row { margin: 8px 0; }
+        .bw-label { display: inline-block; width: 160px; }
+        .bar-wrap { background: #000; border-radius: 4px; height: 16px; width: 100%;
+                    overflow: hidden; margin-top: 3px; }
+        .bar { height: 16px; background: #00ffcc; width: 0%; transition: width 0.4s; }
+        .bar.up { background: #38bdf8; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .ok { color: #22c55e; } .bad { color: #ef4444; }
     </style>
 </head>
 <body>
@@ -16,36 +29,93 @@
     <div class="timestamp" id="timestamp"></div>
 
     <div class="card">
+        <h2>Network Bandwidth (per interface)</h2>
+        <div id="bandwidth"><span class="empty">Loading...</span></div>
+    </div>
+
+    <div class="card">
         <h2>Top Blocked IPs</h2>
-        <pre id="blocked">Loading...</pre>
+        <table id="blocked"><tr><td class="empty">Loading...</td></tr></table>
+    </div>
+
+    <div class="grid2">
+        <div class="card">
+            <h2>Connections by Protocol</h2>
+            <table id="conn-proto"><tr><td class="empty">Loading...</td></tr></table>
+        </div>
+        <div class="card">
+            <h2>Connections by State</h2>
+            <table id="conn-state"><tr><td class="empty">Loading...</td></tr></table>
+        </div>
     </div>
 
     <div class="card">
-        <h2>Active Connections</h2>
-        <pre id="connections">Loading...</pre>
-    </div>
-
-    <div class="card">
-        <h2>Health</h2>
-        <pre id="health">Loading...</pre>
+        <h2>Service Health</h2>
+        <div id="health" class="empty">Loading...</div>
     </div>
 
     <script>
+        // map interface -> network name (adjust if your layout differs)
+        const IFACE_NAMES = { eth0: "Management", eth1: "Frontend", eth2: "Backend" };
+        const MAX_BPS = 12 * 1024 * 1024; // 12 MB/s = full bar
+
+        function bytesHuman(bps) {
+            let v = bps; const u = ["B/s","KB/s","MB/s","GB/s"]; let i = 0;
+            while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+            return v.toFixed(1) + " " + u[i];
+        }
+
+        function renderBandwidth(data) {
+            const el = document.getElementById("bandwidth");
+            const ifaces = data.interfaces || {};
+            const names = Object.keys(ifaces);
+            if (!names.length) { el.innerHTML = '<span class="empty">no data</span>'; return; }
+            el.innerHTML = names.map(n => {
+                const s = ifaces[n];
+                const label = IFACE_NAMES[n] || n;
+                const rxPct = Math.min(100, s.rx_bytes_per_sec / MAX_BPS * 100);
+                const txPct = Math.min(100, s.tx_bytes_per_sec / MAX_BPS * 100);
+                return `<div class="bw-row">
+                    <span class="bw-label">${label} (${n})</span>
+                    <span>down ${s.rx_human} / up ${s.tx_human}</span>
+                    <div class="bar-wrap"><div class="bar" style="width:${rxPct}%"></div></div>
+                    <div class="bar-wrap"><div class="bar up" style="width:${txPct}%"></div></div>
+                </div>`;
+            }).join("");
+        }
+
+        function renderBlocked(data) {
+            const el = document.getElementById("blocked");
+            const entries = Object.entries(data || {});
+            if (!entries.length) { el.innerHTML = '<tr><td class="empty">no blocked traffic yet</td></tr>'; return; }
+            entries.sort((a,b) => b[1]-a[1]);
+            el.innerHTML = '<tr><th>Source IP</th><th class="num">Drops</th></tr>' +
+                entries.map(([ip,c]) => `<tr><td>${ip}</td><td class="num">${c}</td></tr>`).join("");
+        }
+
+        function renderMap(elId, obj) {
+            const el = document.getElementById(elId);
+            const entries = Object.entries(obj || {});
+            if (!entries.length) { el.innerHTML = '<tr><td class="empty">none</td></tr>'; return; }
+            el.innerHTML = entries.map(([k,v]) => `<tr><td>${k}</td><td class="num">${v}</td></tr>`).join("");
+        }
+
         function refresh() {
-            for (const endpoint of ["blocked", "connections", "health"]) {
-                fetch(`/api/${endpoint}`)
-                    .then((response) => response.json())
-                    .then((data) => {
-                        document.getElementById(endpoint).textContent =
-                            JSON.stringify(data, null, 2);
-                    });
-            }
+            fetch("/api/bandwidth").then(r=>r.json()).then(renderBandwidth).catch(()=>{});
+            fetch("/api/blocked").then(r=>r.json()).then(renderBlocked).catch(()=>{});
+            fetch("/api/connections").then(r=>r.json()).then(d=>{
+                renderMap("conn-proto", d.by_protocol);
+                renderMap("conn-state", d.by_state);
+            }).catch(()=>{});
+            fetch("/api/health").then(r=>r.json()).then(d=>{
+                document.getElementById("health").innerHTML =
+                    `<span class="${d.status==='ok'?'ok':'bad'}">${d.service}: ${d.status}</span>`;
+            }).catch(()=>{});
             document.getElementById("timestamp").textContent =
                 "Last update: " + new Date().toLocaleString();
         }
-
         refresh();
-        setInterval(refresh, 5000);
+        setInterval(refresh, 2000);
     </script>
 </body>
 </html>
