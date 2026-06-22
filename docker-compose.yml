@@ -34,6 +34,8 @@ volumes:
 
 services:
   fw1:
+    ports:
+      - "5000:5000"
     build:
       context: .
       dockerfile: docker/DockerFile
@@ -58,6 +60,7 @@ services:
     volumes:
       - fw1_logs:/var/log
       - ./tests:/tests:ro
+      - ./monitoring:/monitoring:ro
     environment:
       NODE_ROLE: master
       KEEPALIVED_PRIORITY: "110"
@@ -304,3 +307,24 @@ services:
         --html=/test_results/report.html
         --self-contained-html
         -v
+
+  traffic-gen:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: traffic-gen
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      frontend_net:
+    command: >
+      sh -c "while true; do
+        nc -w1 172.21.0.11 9999 || true;
+        nc -w1 172.21.0.11 12345 || true;
+        timeout 2 ping -f 172.21.0.11 || true;
+        sleep 3;
+      done"
+    depends_on:
+      - fw1
+
