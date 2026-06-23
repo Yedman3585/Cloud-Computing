@@ -4,34 +4,34 @@ Cloud Computing group project, Topic 5.2: Scalable Firewall with Debian 13 and n
 
 ## Project Goal
 
-The final project should provide a flexible, high-availability firewall platform that can be deployed in Docker containers, virtual machines, LXC/OCI containers, or on real physical Debian hosts.
+This project implements a high-availability firewall lab that can run in Docker containers and can be adapted for virtual machines, LXC/OCI containers, or physical Debian hosts.
 
 The firewall cluster must consist of three firewall nodes. One node owns the virtual cluster IP at a time, and the other two nodes are standby nodes. If the active node fails, Keepalived must move the virtual IP to another firewall node automatically. To reduce broken TCP sessions during failover, conntrackd should synchronize connection tracking state between the firewall nodes.
 
-Ansible is the central rollout mechanism. The same Ansible roles should configure the firewall in the test environment and on real Debian 13 systems without Docker-specific commands inside the roles.
+Ansible is the main deployment tool. The same Ansible roles should configure the firewall in the test environment and on real Debian 13 systems without Docker-specific commands inside the roles.
 
-## Final Target Architecture
+## Target Architecture
 
-In the final version, the project should include:
+The project includes:
 
 - Three Debian 13 firewall nodes: `fw1`, `fw2`, and `fw3`.
 - nftables firewall rules for both IPv4 and IPv6.
 - Static hostname, IPv4, and IPv6 data stored in Ansible inventory.
 - Docker lab targets use Ansible's Docker connection plugin; VM or physical targets should use a separate SSH-based inventory.
-- Keepalived VRRP failover with a shared cluster IP.
+- Keepalived VRRP failover with one active firewall owning the management, frontend, and backend cluster VIPs.
 - conntrackd connection state synchronization between firewall nodes.
 - Docker Compose test infrastructure with two or three isolated networks and test clients.
 - Diagnostic packages on firewall nodes, including `tcpdump`, `iftop`, and `cbm`.
 - Automated traffic tests for allowed and blocked packets.
 - Monitoring, logging, and diagnostic scripts.
-- CI/CD pipeline for building, testing, and deploying the solution.
-- Optional Kubernetes or Helm deployment path for cloud-native testing.
+- CI/CD validation for syntax and configuration checks where a compatible runner is available.
+- Optional Kubernetes, Helm, or Gitea workflow material for extra deployment examples.
 
 ## Design Rules
 
 - Debian 13 is the target operating system.
 - nftables is the firewall backend.
-- Ansible is the source of truth for system configuration and firewall deployment.
+- Ansible is where the system configuration and firewall deployment are defined.
 - Firewall rules should be configurable through inventory and variables.
 - Hostname-based configuration must use static inventory data, not runtime DNS lookups.
 - IPv4 and IPv6 rules must be generated together.
@@ -40,28 +40,57 @@ In the final version, the project should include:
 
 ## Team Responsibilities
 
-| Member | Area | Main Responsibilities | Final Validation |
-|---|---|---|---|
-| Member 1 | Firewall Core and High Availability | Implement nftables rules, Keepalived VRRP, conntrackd synchronization, and failover behavior. Integrate or support custom firewall apply logic. | `nft -c -f`, failover tests, conntrack state comparison before and after failover. |
-| Member 2 | Test Environment and Automated QA | Build Docker Compose topology with three firewall nodes and test clients across isolated networks. Create pytest and Scapy traffic tests. | `docker compose config`, `docker compose up`, `pytest`, allowed/blocked traffic validation. |
-| Member 3 | CI/CD and Kubernetes Orchestration | Build CI/CD pipeline, local Kubernetes setup, OCI image flow, and Helm/Kubernetes deployment assets. | Pipeline run, image build, Helm lint/template, kind or minikube deployment. |
-| Member 4 | Monitoring, Logging, and Diagnostics | Configure rsyslog, nftables log parsing, tcpdump rotation, conntrack analysis, dashboard, and alerts. | Generated test traffic appears correctly in logs, captures, dashboard, and alerts. |
-| Member 5 | Ansible Orchestration and Integration | Build the Ansible structure, inventory contract, roles, templates, custom validation/apply modules, Molecule tests, and requirement validation documentation. | `bash run_wsl_checks.sh`, `molecule test`, inventory validation, syntax checks, ansible-lint. |
+| Member | Name | Area | Main Responsibilities | Final Validation |
+|---|---|---|---|---|
+| Member 1 | Iliyas | Firewall Core and High Availability | Define the firewall behavior: nftables rules, Keepalived VRRP failover, conntrackd synchronization, and firewall runtime behavior during node failure. | `nft -c -f`, failover tests, conntrack state comparison before and after failover. |
+| Member 2 | Said | Test Environment and Automated QA | Build the Docker Compose lab with firewall nodes, test clients, backend servers, isolated networks, and pytest/traffic tests for allowed and blocked flows. | `docker compose config`, `docker compose up`, `pytest`, allowed/blocked traffic validation. |
+| Member 3 | Shahzod | CI/CD and Kubernetes Orchestration | Provide CI/CD validation, image build flow, and optional Kubernetes/Helm deployment files. | GitLab/Gitea pipeline checks, Docker image build, Helm lint/template, optional kind or minikube deployment. |
+| Member 4 | Aisana | Monitoring, Logging, and Diagnostics | Add logging, metrics, packet capture, conntrack analysis, dashboard material, and optional alerting around firewall activity. | Generated test traffic appears correctly in logs, captures, dashboard, metrics, and alerts. |
+| Member 5 | Yedige Mussabayev | Ansible Orchestration and Integration | Build and maintain the Ansible control layer: inventory structure, group variables, roles, templates, custom validation/apply modules, deployment playbooks, WSL validation script, integration documentation, and connection between the member parts. This part is broad because Ansible connects the firewall behavior, Docker topology, HA configuration, tests, and validation results. | `bash run_wsl_checks.sh`, `ansible-playbook ansible/playbooks/site.yml`, `ansible-playbook ansible/playbooks/run_tests.yml`, inventory validation, syntax checks, ansible-lint, Molecule role checks where applicable. |
+
+The member parts are connected through the Ansible/Docker run path:
+
+- Member 1's firewall and HA behavior is rendered and deployed by Ansible.
+- Member 2's Docker topology is the live environment for deployment and tests.
+- Member 3's CI/CD and Kubernetes material validates or demonstrates the project outside the local run path.
+- Member 4's monitoring components observe the deployed firewall behavior.
+- Member 5's Ansible layer turns the shared inventory into repeatable configuration across `fw1`, `fw2`, `fw3`, clients, and backend servers.
 
 ## Current Project Status
 
-The project has moved beyond the isolated Member 5 Stage 1 foundation. The Ansible integration layer now uses the Docker test topology from teammate updates as its target environment.
+The project now uses the Docker test topology from teammate updates as the Ansible deployment environment.
 
 The core Docker/WSL integration path is now passing. Ansible deploys the three firewall nodes in the Docker Compose topology, and the integration test playbook validates nftables rules, Keepalived failover, conntrackd behavior, IPv6 rule rendering, and report generation.
 
-The full project still needs final cross-member polish: monitoring integration, CI/CD/Kubernetes completion, secrets handling with Ansible Vault, and optional VM or physical-host validation if required by the professor.
+The Docker/Ansible firewall path is connected and passing. Kubernetes, Helm, GitLab runner execution, Gitea runner execution, Ansible Vault, and VM or physical-host validation remain optional extensions unless the professor explicitly asks for them.
+
+## Member 5 Work: Ansible Integration
+
+Member 5 is responsible for more than a single role. The Ansible part is the main integration layer of the project. It defines the inventory structure, renders firewall and HA configuration, applies services to the running firewall nodes, configures routes for the test topology, and provides repeatable validation commands.
+
+The Ansible layer is split into these main parts:
+
+- `ansible/inventory/hosts.yml`: main inventory for the Docker lab, including firewall nodes, backend servers, clients, and static network data.
+- `ansible/inventory/hosts.ini`: fallback inventory for simple Ansible commands and professor/demo readability.
+- `ansible/group_vars/all.yml`: shared firewall objects, network objects, VIPs, allowed services, and rule references.
+- `ansible/group_vars/firewalls.yml`: firewall-cluster settings such as priorities, peer data, Keepalived instances, and conntrackd sync addresses.
+- `ansible/playbooks/site.yml`: main deployment playbook. It validates inventory, configures firewalls, and configures client/server routing through the firewall VIPs.
+- `ansible/playbooks/run_tests.yml`: post-deployment integration test runner. It waits for healthy firewalls, starts monitoring, runs pytest, stores logs, and generates reports.
+- `ansible/roles/common`: installs base packages, diagnostics, and detects the correct Docker network interfaces.
+- `ansible/roles/firewall`: renders and applies the nftables ruleset.
+- `ansible/roles/keepalived`: renders and manages VRRP configuration for management, frontend, and backend VIP failover.
+- `ansible/roles/conntrackd`: renders and manages connection-state synchronization.
+- `ansible/roles/routing`: configures frontend/backend routes so test traffic actually crosses the firewall cluster.
+- `ansible/library/inventory_validate.py`: fails early when inventory objects or firewall rule references are inconsistent.
+- `ansible/library/nftables_apply.py`: validates nftables syntax before applying firewall rules.
+- `run_wsl_checks.sh`: repeatable WSL validation wrapper for inventory graph, syntax check, and ansible-lint.
 
 ## Member 5 Work: Done And Pending
 
 ### Done
 
 - Added repository hygiene through `.gitignore`.
-- Made `ansible/inventory/hosts.yml` the canonical inventory.
+- Made `ansible/inventory/hosts.yml` the main inventory.
 - Updated `ansible/ansible.cfg` to use the YAML inventory.
 - Added `remote_tmp = /tmp/ansible` to avoid Ansible temporary directory issues.
 - Defined three firewall nodes: `fw1`, `fw2`, and `fw3`.
@@ -103,20 +132,20 @@ The full project still needs final cross-member polish: monitoring integration, 
 - Docker Compose starts the three firewall containers, three clients, and two backend servers.
 - The rendered nftables ruleset passes `nft -c` syntax validation inside `fw1`.
 - `ansible/playbooks/site.yml` deploys common packages, nftables, Keepalived, and conntrackd to `fw1`, `fw2`, and `fw3`.
-- Keepalived runs on all three firewall nodes and moves the VIP during failover tests.
+- Keepalived runs on all three firewall nodes and keeps the management, frontend, and backend VIPs on exactly one active firewall.
+- Added routing through the frontend/backend VIPs so client-to-server traffic crosses the firewall cluster.
+- Added port-isolation validation: `server2` serves ports `80` and `8080` locally, but only port `80` is reachable through the firewall.
 - conntrackd runtime checks pass after stale Docker lock/socket recovery was added to the test setup.
-- `ansible/playbooks/run_tests.yml` passes with `79 passed`, `0 failed`, and `11 skipped`.
+- `ansible/playbooks/run_tests.yml` passes with `86 passed`, `0 failed`, and `11 skipped`.
 - Optional Helm/Kubernetes support files have been imported under `helm/` and `k8s/`.
 - Sanitized monitoring dashboard and metric scripts have been imported under `monitoring/`.
 
 ### Still Needed
 
-- Add Ansible Vault for real secrets, especially Keepalived authentication data.
-- Add or finalize a dynamic inventory plugin if the final scope requires Docker/Kubernetes/physical inventory discovery.
-- Run the full playbook against a Debian 13 VM or real host to prove portability.
-- Final-review nftables rules from Member 1.
-- Validate optional Helm/Kubernetes deployment if it remains in the final scope.
-- Validate the final monitoring dashboard, metrics, logs, and alerts with Member 4.
+- Add Ansible Vault for real secrets before using production credentials.
+- Run the full playbook against a Debian 13 VM or real host if portability validation is required.
+- Validate optional Helm/Kubernetes/Gitea deployment only if it remains in the course scope.
+- Validate the final monitoring dashboard, metrics, logs, and alerts with Member 4 if dashboard validation is required.
 - Update the requirement matrix after every teammate's final implementation is merged.
 - Prepare final commit, push, and merge workflow with the team.
 
@@ -125,7 +154,7 @@ The full project still needs final cross-member polish: monitoring integration, 
 | Step | Description | Status |
 |---|---|---|
 | 1 | Repository hygiene | Done |
-| 2 | Canonical inventory design | Done |
+| 2 | Main inventory design | Done |
 | 3 | Ansible role structure | Done |
 | 4 | nftables role integration | Done |
 | 5 | Custom validation and apply modules | Done |
@@ -158,13 +187,15 @@ Current repository structure:
 |   |-- supervisord.conf
 |   `-- nginx/
 |       |-- server1.html
-|       `-- server2.html
+|       |-- server2.html
+|       `-- server2-multiport.conf
 |-- tests/
 |   |-- conftest.py
 |   |-- test_conntrackd.py
 |   |-- test_failover.py
 |   |-- test_ipv6.py
 |   |-- test_nftables_rules.py
+|   |-- test_port_isolation.py
 |   `-- traffic_generator.py
 |-- scripts/
 |   |-- generate_report.py
@@ -196,7 +227,8 @@ Current repository structure:
         |-- common/
         |-- firewall/
         |-- keepalived/
-        `-- conntrackd/
+        |-- conntrackd/
+        `-- routing/
 ```
 
 Member 5 Ansible structure in more detail:
@@ -244,11 +276,14 @@ ansible/
     |   |-- handlers/main.yml
     |   |-- tasks/main.yml
     |   `-- templates/keepalived.conf.j2
-    `-- conntrackd/
+    |-- conntrackd/
+    |   |-- defaults/main.yml
+    |   |-- handlers/main.yml
+    |   |-- tasks/main.yml
+    |   `-- templates/conntrackd.conf.j2
+    `-- routing/
         |-- defaults/main.yml
-        |-- handlers/main.yml
-        |-- tasks/main.yml
-        `-- templates/conntrackd.conf.j2
+        `-- tasks/main.yml
 ```
 
 ## Current Validation Commands
@@ -261,12 +296,12 @@ From the repository root:
 bash run_wsl_checks.sh
 ```
 
-The script prefers the project `.venv_linux` environment when it exists. If Ansible is missing in WSL, recreate or activate the environment first:
+The script prefers the active `VIRTUAL_ENV`; if no environment is active, it uses the project `.venv_linux` environment when it exists. If Ansible is missing in WSL, deactivate any virtualenv from another project, then recreate or activate this project's environment:
 
 ```bash
 python3 -m venv .venv_linux
 source .venv_linux/bin/activate
-python -m pip install -r requirements.txt molecule molecule-plugins[docker] ansible-lint
+python -m pip install -r requirements.txt molecule molecule-plugins[docker]
 ansible-galaxy collection install -r ansible/requirements.yml
 ```
 
@@ -302,24 +337,24 @@ docker ps
 ## Known Current Gaps
 
 - Docker Compose infrastructure builds and starts, and Ansible deployment, failover, and integration tests pass in WSL/Docker.
-- `.gitlab-ci.yml` now contains expanded validation jobs; GitLab runner eligibility/tag settings still need to be confirmed if jobs appear stuck without traces.
-- Kubernetes or Helm support files now exist and are covered by template/YAML checks, but runtime proof still depends on the final Member 3 scope.
-- Monitoring scripts, dashboard, and Ansible NFLOG drop rules exist, but the final Member 4 log flow, alerting, and packet capture proof is not complete.
+- `.gitlab-ci.yml` contains expanded validation jobs, but GitLab runner eligibility/tag settings are an environment issue if jobs appear stuck without traces.
+- Kubernetes, Helm, and Gitea workflow files are optional extensions; the professor's core Topic 5.2 path is Docker Compose plus Ansible plus nftables/HA tests.
+- Monitoring scripts, dashboard, and Ansible NFLOG drop rules exist; final dashboard/log/alert validation is optional unless required for the demo.
 - Real nftables application, Keepalived failover, and conntrackd synchronization have passed privileged Docker integration tests.
 - The current Molecule test validates role rendering and idempotence, not full kernel-level firewall behavior.
 
-## Final Acceptance Criteria
+## Acceptance Criteria
 
 The project can be considered complete when:
 
 - Ansible deploys all firewall nodes successfully.
-- All three firewall nodes are configured from the same inventory contract.
+- All three firewall nodes are configured from the same inventory structure.
 - nftables rules are generated for both IPv4 and IPv6.
 - `nft -c -f` validates the rendered ruleset.
 - Keepalived failover moves the cluster IP automatically.
 - conntrackd synchronizes connection state between firewall nodes.
 - Docker Compose provides realistic test networks and clients.
 - Automated traffic tests prove allowed and blocked flows.
-- Monitoring and logging show firewall activity and failover events.
-- CI/CD runs linting, syntax checks, tests, and deployment steps.
-- Documentation clearly maps every requirement to implementation and validation evidence.
+- Monitoring and logging show firewall activity and failover events when the optional dashboard path is demonstrated.
+- CI/CD validation runs where a compatible GitLab/Gitea runner is available.
+- Documentation lists each requirement, implementation, and validation result.
