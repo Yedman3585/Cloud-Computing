@@ -632,6 +632,62 @@ UDP traffic (active device=eth2):
   0 Error send, 0 Error recv
 ```
 
+Latest observed deployed Keepalived configuration excerpt from `fw1`:
+
+```text
+global_defs {
+    router_id fw1
+}
+
+vrrp_instance VI_1 {
+    state MASTER
+    interface eth2
+    virtual_router_id 51
+    priority 110
+    virtual_ipaddress {
+        172.20.0.100/24
+    }
+}
+
+vrrp_instance VI_2 {
+    state MASTER
+    interface eth1
+    virtual_router_id 52
+    priority 110
+    virtual_ipaddress {
+        172.21.0.100/24
+    }
+}
+
+vrrp_instance VI_3 {
+    state MASTER
+    interface eth0
+    virtual_router_id 53
+    priority 110
+    virtual_ipaddress {
+        172.22.0.100/24
+    }
+}
+```
+
+This proves that the deployed Keepalived configuration contains three VRRP
+instances, one per lab network, not only a single management VIP.
+
+Latest observed deployed conntrackd synchronization excerpt from `fw1`:
+
+```text
+Mode NOTRACK {
+UDP Default {
+    IPv4_address 172.20.0.11
+    IPv4_Destination_Address 172.20.0.12
+    Port 3780
+    Interface eth2
+}
+```
+
+This proves that conntrackd is not only running as a process; it is configured
+to synchronize state from `fw1` to its peer over UDP port `3780`.
+
 #### 3.3.4 nftables loaded rules
 
 ```bash
@@ -648,6 +704,22 @@ Look for:
 - conntrackd UDP 3780 accept rule
 - HTTP 80/443 forward accept rule
 - drop logging rules
+
+Additional syntax and consistency checks from 2026-07-04:
+
+```text
+docker exec fw1 nft -c -f /etc/nftables.conf
+rc=0
+
+sha256sum /etc/nftables.conf on all firewall nodes:
+fw1 ce62346c0bb724418b052a1ed5e6e428340984592fe489dd60f09aed3e882e79  /etc/nftables.conf
+fw2 ce62346c0bb724418b052a1ed5e6e428340984592fe489dd60f09aed3e882e79  /etc/nftables.conf
+fw3 ce62346c0bb724418b052a1ed5e6e428340984592fe489dd60f09aed3e882e79  /etc/nftables.conf
+```
+
+`nft -c` proves the rendered ruleset is syntactically valid. The matching
+hashes prove that all three firewall nodes received the same Ansible-rendered
+ruleset.
 
 #### 3.3.5 Allowed traffic
 
@@ -688,11 +760,15 @@ Expected: timeout or `000`.
 Latest observed blocked-traffic output from 2026-07-04:
 
 ```text
-Command: curl -s -m 4 -o /dev/null -w '%{http_code}' http://172.22.0.32:8080/
-client1 -> server2:8080  000 rc=28
-client2 -> server2:8080  000 rc=28
-client3 -> server2:8080  000 rc=28
-Result: port 8080 is filtered by the firewall forward policy, so curl times out.
+server2 local 8080 rc=0
+
+Command from frontend clients:
+curl -s -m 4 -o /dev/null -w '%{http_code}' http://172.22.0.32:8080/
+
+client1 -> server2:8080 000 rc=28
+client2 -> server2:8080 000 rc=28
+client3 -> server2:8080 000 rc=28
+Result: port 8080 is open on server2 itself, but filtered by the firewall forward policy from the frontend network.
 ```
 
 #### 3.3.7 Failover
@@ -728,6 +804,16 @@ sample events:
 - FAILOVER[mgmt]: fw3 -> fw1; FAILOVER[frontend]: fw3 -> fw1; FAILOVER[backend]: fw3 -> fw1
 ```
 
+Latest observed post-recovery VIP ownership check:
+
+```text
+fw1 eth2: 172.20.0.11/24 + 172.20.0.100/24 secondary
+fw1 eth1: 172.21.0.11/24 + 172.21.0.100/24 secondary
+fw1 eth0: 172.22.0.11/24 + 172.22.0.100/24 secondary
+fw2: node IPs only, no cluster VIPs
+fw3: node IPs only, no cluster VIPs
+```
+
 #### 3.3.8 Routes through firewall VIPs
 
 ```bash
@@ -743,12 +829,21 @@ Expected:
 Latest observed route output from 2026-07-04:
 
 ```text
-docker exec client1 ip route get 172.22.0.32
-172.22.0.32 via 172.21.0.100 dev eth0 src 172.21.0.21 uid 0
+client1 -> 172.22.0.32: 172.22.0.32 via 172.21.0.100 dev eth0 src 172.21.0.21 uid 0
+client2 -> 172.22.0.32: 172.22.0.32 via 172.21.0.100 dev eth0 src 172.21.0.22 uid 0
+client3 -> 172.22.0.32: 172.22.0.32 via 172.21.0.100 dev eth0 src 172.21.0.23 uid 0
 
-docker exec server1 ip route get 172.21.0.21
-172.21.0.21 via 172.22.0.100 dev eth0 src 172.22.0.31
-Result: frontend-to-backend traffic is routed through firewall VIPs, not around them.
+server1 ip route:
+default via 172.22.0.1 dev eth0
+172.21.0.0/24 via 172.22.0.100 dev eth0
+172.22.0.0/24 dev eth0 scope link src 172.22.0.31
+
+server2 ip route:
+default via 172.22.0.1 dev eth0
+172.21.0.0/24 via 172.22.0.100 dev eth0
+172.22.0.0/24 dev eth0 scope link src 172.22.0.32
+
+Result: frontend-to-backend and backend-to-frontend traffic is routed through firewall VIPs, not around them.
 ```
 
 ### 3.4 Monitoring and reports
@@ -887,13 +982,18 @@ It performs:
 The runner needs Docker access because the integration job starts containers.
 This is similar to GitLab CI, but written for Gitea Actions.
 
-There is also a copy in:
+The repository keeps the workflow only in the standard path that Gitea Actions
+detects: `.gitea/workflows/ci.yml`.
+
+Latest observed workflow parse check from 2026-07-04:
 
 ```text
-gitea/workflows/ci.yml
+.gitea/workflows/ci.yml exists
+workflow: firewall-lab-ci
+jobs: validate, integration-test
+validate_steps: 6
+integration-test_steps: 8
 ```
-
-The standard path that Gitea Actions detects is `.gitea/workflows/ci.yml`.
 
 ---
 
