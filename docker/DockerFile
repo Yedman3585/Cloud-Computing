@@ -22,6 +22,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     openssh-server \
     openssh-client \
     python3 \
+    python3-apt \
     python3-pip \
     python3-venv \
     supervisor \
@@ -29,6 +30,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     procps \
     vim \
     less \
+    dnsutils \
     ca-certificates \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -55,12 +57,14 @@ RUN echo 'net.ipv4.ip_forward=1' >> /etc/sysctl.d/99-firewall.conf \
 RUN mkdir -p /etc/supervisor/conf.d
 COPY docker/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 COPY docker/entrypoint.sh /entrypoint.sh
+COPY monitoring/ /app/monitoring/
+COPY scripts/ /app/scripts/
 RUN sed -i 's/\r$//' /entrypoint.sh \
     && chmod +x /entrypoint.sh
 
 WORKDIR /app
 
-EXPOSE 22 80 443
+EXPOSE 22 80 443 5000
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]

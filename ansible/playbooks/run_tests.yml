@@ -29,6 +29,8 @@
       FW2_FRONTEND_IP: "172.21.0.12"
       FW3_FRONTEND_IP: "172.21.0.13"
       VIRTUAL_IP: "172.20.0.100"
+      FRONTEND_VIP: "172.21.0.100"
+      BACKEND_VIP: "172.22.0.100"
       SERVER1_IP: "172.22.0.31"
       SERVER2_IP: "172.22.0.32"
       REPORT_DIR: "{{ report_dir }}"

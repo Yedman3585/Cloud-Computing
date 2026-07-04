@@ -6,3 +6,7 @@ Dockerfile* text eol=lf
 Makefile text eol=lf
 *.yml text eol=lf
 *.yaml text eol=lf
+.ansible-lint text eol=lf
+requirements.txt text eol=lf
+.gitattributes text eol=lf
+*.md text eol=lf

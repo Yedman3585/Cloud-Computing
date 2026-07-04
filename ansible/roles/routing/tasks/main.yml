@@ -1,0 +1,37 @@
+---
+# Applies to test_clients (frontend_net) and backend_servers (backend_net).
+# Ensures traffic between the two networks transits the firewall cluster VIPs,
+# so the firewall ruleset is exercised end to end.
+
+- name: Bootstrap Python and route tools on minimal Alpine backend servers
+  ansible.builtin.raw: >-
+    command -v python3 >/dev/null 2>&1 || apk add --no-cache python3;
+    command -v bash >/dev/null 2>&1 || apk add --no-cache bash;
+    command -v ip >/dev/null 2>&1 || apk add --no-cache iproute2
+  when: inventory_hostname in groups['backend_servers']
+  changed_when: false
+
+- name: Ensure iproute2 is present on Debian-based test clients
+  become: true
+  ansible.builtin.package:
+    name: iproute2
+    state: present
+  when: inventory_hostname in groups['test_clients']
+
+- name: Add route to backend network via the frontend VIP on test clients
+  become: true
+  ansible.builtin.command:
+    cmd: >-
+      ip route replace {{ routing_backend_subnet_ipv4 }}
+      via {{ routing_frontend_vip_ipv4 }}
+  changed_when: true
+  when: inventory_hostname in groups['test_clients']
+
+- name: Add route to frontend network via the backend VIP on backend servers
+  become: true
+  ansible.builtin.command:
+    cmd: >-
+      ip route replace {{ routing_frontend_subnet_ipv4 }}
+      via {{ routing_backend_vip_ipv4 }}
+  changed_when: true
+  when: inventory_hostname in groups['backend_servers']

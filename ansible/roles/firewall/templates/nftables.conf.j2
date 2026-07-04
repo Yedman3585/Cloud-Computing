@@ -22,6 +22,12 @@
 flush ruleset
 
 table inet filter {
+    set ssh_bruteforce {
+        type ipv4_addr
+        flags dynamic,timeout
+        timeout 5m
+    }
+
 {% for object_name, object_data in firewall_objects.items() %}
 {% if object_data.ipv4 | default([]) | length > 0 %}
     set {{ object_name }}_ipv4 {
@@ -46,6 +52,10 @@ table inet filter {
 
         ct state established,related accept
         iif lo accept
+
+        # Dynamic SSH brute-force protection: track new connection attempts
+        # per source IP; block sources making 4+ attempts within 60 seconds.
+        tcp dport 22 ct state new add @ssh_bruteforce { ip saddr limit rate over 4/minute } drop
 
 {% for rule in firewall_rules if rule.chain | default('input') == 'input' %}
 {{ render_rule(rule) }}
@@ -72,5 +82,12 @@ table inet filter {
     chain output {
         type filter hook output priority 0;
         policy accept;
+    }
+}
+
+table ip nat {
+    chain postrouting {
+        type nat hook postrouting priority 100;
+        ip saddr 172.22.0.0/24 oif "eth0" masquerade
     }
 }

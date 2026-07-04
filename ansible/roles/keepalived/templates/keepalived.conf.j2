@@ -1,33 +1,26 @@
 global_defs {
     router_id {{ inventory_hostname }}
-    enable_script_security
 }
 
-vrrp_instance {{ keepalived_cluster.instance_name | default('VI_1') }} {
-    state {{ keepalived_state | default('BACKUP') }}
-    interface {{ keepalived_cluster.interface }}
-    virtual_router_id {{ keepalived_cluster.virtual_router_id }}
+{% for instance in keepalived_vrrp_instances %}
+vrrp_instance {{ instance.instance_name }} {
+    state {{ keepalived_state }}
+    interface {{ instance.interface }}
+    virtual_router_id {{ instance.virtual_router_id }}
     priority {{ keepalived_priority }}
     advert_int {{ keepalived_cluster.advert_int | default(1) }}
 
-    unicast_src_ip {{ ipv4_addr }}
-    unicast_peer {
-{% for peer in groups[keepalived_cluster.name] | default(groups['firewalls'] | default([])) if peer != inventory_hostname %}
-        {{ hostvars[peer].ipv4_addr }}
-{% endfor %}
-    }
-
     authentication {
         auth_type PASS
-        auth_pass {{ vault_keepalived_auth_pass | default(keepalived_cluster.auth_pass) }}
+        auth_pass {{ keepalived_cluster.auth_pass }}
     }
 
     virtual_ipaddress {
-{% if keepalived_cluster.vip_ipv4 | default(None) %}
-        {{ keepalived_cluster.vip_ipv4 }} dev {{ keepalived_cluster.interface }}
-{% endif %}
-{% if keepalived_cluster.vip_ipv6 | default(None) and keepalived_cluster.enable_ipv6_vip | default(false) %}
-        {{ keepalived_cluster.vip_ipv6 }} dev {{ keepalived_cluster.interface }}
+        {{ instance.vip_ipv4 }}
+{% if keepalived_cluster.enable_ipv6_vip | default(false) %}
+        {{ instance.vip_ipv6 }}
 {% endif %}
     }
 }
+
+{% endfor %}

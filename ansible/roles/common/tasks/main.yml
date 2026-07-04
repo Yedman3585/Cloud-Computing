@@ -13,3 +13,38 @@
     state: started
     enabled: true
   when: common_manage_rsyslog_service | bool
+
+# --- Interface detection -----------------------------------------------
+# Docker Compose's NIC ordering (eth0/eth1/eth2) is not guaranteed across
+# Docker/Compose versions, so we resolve the real interface name for each
+# role (mgmt/frontend/backend) by matching the IPv4 address Ansible
+# already knows about from inventory, instead of hardcoding eth0/1/2.
+
+- name: Detect management-network interface
+  ansible.builtin.set_fact:
+    firewall_mgmt_interface: "{{ item }}"
+  loop: "{{ ansible_facts.interfaces }}"
+  when: (ansible_facts[item].ipv4.address | default('')) == ipv4_addr
+
+- name: Detect frontend-network interface
+  ansible.builtin.set_fact:
+    firewall_frontend_interface: "{{ item }}"
+  loop: "{{ ansible_facts.interfaces }}"
+  when: (ansible_facts[item].ipv4.address | default('')) == frontend_ipv4_addr
+
+- name: Detect backend-network interface
+  ansible.builtin.set_fact:
+    firewall_backend_interface: "{{ item }}"
+  loop: "{{ ansible_facts.interfaces }}"
+  when: (ansible_facts[item].ipv4.address | default('')) == backend_ipv4_addr
+
+- name: Fail fast if any required interface could not be detected
+  ansible.builtin.assert:
+    that:
+      - firewall_mgmt_interface is defined
+      - firewall_frontend_interface is defined
+      - firewall_backend_interface is defined
+    fail_msg: >-
+      Could not map mgmt/frontend/backend IPs from inventory to a NIC name
+      on {{ inventory_hostname }}. Check ipv4_addr / frontend_ipv4_addr /
+      backend_ipv4_addr in inventory/hosts.yml against `ip a` on the host.

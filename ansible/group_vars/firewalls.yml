@@ -31,18 +31,40 @@ firewall_nflog_group: 1
 firewall_input_drop_log_prefix: "DROP-IN "
 firewall_forward_drop_log_prefix: "DROP-FWD "
 
-keepalived_service_mode: init_script
+keepalived_service_mode: supervisor
+
+# Shared VRRP settings used by every instance below.
 keepalived_cluster:
   name: firewall_cluster_main
-  instance_name: VI_1
-  interface: eth2
-  virtual_router_id: 51
   advert_int: 1
   auth_pass: fwha2026
-  vip_ipv4: 172.20.0.100/24
-  vip_ipv6: fd00:20::100/64
   enable_ipv6_vip: false
 
+# One VRRP instance per network the firewall sits on. All three are always
+# owned by the same node (driven by the per-host keepalived_priority in
+# inventory/hosts.yml), so failover moves mgmt + frontend + backend VIPs
+# together, and routing through the firewall keeps working after failover.
+keepalived_vrrp_instances:
+  - name: mgmt
+    instance_name: VI_1
+    interface: "{{ firewall_mgmt_interface | default('pending') }}"
+    virtual_router_id: 51
+    vip_ipv4: 172.20.0.100/24
+    vip_ipv6: fd00:20::100/64
+  - name: frontend
+    instance_name: VI_2
+    interface: "{{ firewall_frontend_interface | default('pending') }}"
+    virtual_router_id: 52
+    vip_ipv4: 172.21.0.100/24
+    vip_ipv6: fd00:21::100/64
+  - name: backend
+    instance_name: VI_3
+    interface: "{{ firewall_backend_interface | default('pending') }}"
+    virtual_router_id: 53
+    vip_ipv4: 172.22.0.100/24
+    vip_ipv6: fd00:22::100/64
+
+conntrackd_service_mode: daemon
 conntrackd_interface: eth2
 conntrackd_sync_mode: NOTRACK
 conntrackd_port: 3780

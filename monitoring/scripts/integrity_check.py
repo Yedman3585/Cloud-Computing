@@ -2,36 +2,49 @@
 import argparse
 import hashlib
 import json
+import os
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
 
-def calculate_hash(path: Path) -> str | None:
-    if not path.exists():
+def read_container_file(container: str, path: str) -> bytes | None:
+    try:
+        result = subprocess.run(
+            ["docker", "exec", container, "cat", path],
+            capture_output=True,
+            check=False,
+        )
+    except FileNotFoundError:
         return None
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return result.stdout if result.returncode == 0 else None
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Check rendered firewall rules integrity")
+    parser = argparse.ArgumentParser(description="Check deployed firewall rules integrity")
+    parser.add_argument("--container", default=os.environ.get("FIREWALL_METRICS_CONTAINER", "fw1"))
     parser.add_argument("--rules-file", default="/etc/nftables.conf")
     parser.add_argument("--state-file", default="monitoring/data/rules_hash.json")
     args = parser.parse_args()
 
-    rules_file = Path(args.rules_file)
     state_file = Path(args.state_file)
     state_file.parent.mkdir(parents=True, exist_ok=True)
 
-    current_hash = calculate_hash(rules_file)
-    if current_hash is None:
-        print(f"[WARN] Rules file not found: {rules_file}")
+    rules = read_container_file(args.container, args.rules_file)
+    if rules is None:
+        print(f"[WARN] Could not read {args.rules_file} from container {args.container}")
         return 1
 
+    current_hash = hashlib.sha256(rules).hexdigest()
+    current = {
+        "hash": current_hash,
+        "timestamp": datetime.now().isoformat(),
+        "container": args.container,
+        "rules_file": args.rules_file,
+    }
+
     if not state_file.exists():
-        state_file.write_text(
-            json.dumps({"hash": current_hash, "timestamp": datetime.now().isoformat()}, indent=2),
-            encoding="utf-8",
-        )
+        state_file.write_text(json.dumps(current, indent=2), encoding="utf-8")
         print("[PASS] First run: hash saved")
         return 0
 

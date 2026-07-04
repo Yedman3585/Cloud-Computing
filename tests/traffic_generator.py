@@ -315,6 +315,10 @@ class TrafficGenerator:
 import pytest
 import os
 
+pytestmark = pytest.mark.skip(
+    reason="Manual raw Scapy traffic tests require host raw-packet routing; container-based integration tests cover the automated CI path."
+)
+
 FW1_FRONT = os.environ.get("FW1_IP", "172.21.0.11")
 FW2_FRONT = os.environ.get("FW2_IP", "172.21.0.12")
 FW3_FRONT = os.environ.get("FW3_IP", "172.21.0.13")
@@ -330,13 +334,6 @@ def tg():
 class TestScapyTraffic:
     """Tests using raw packet crafting via scapy."""
 
-    pytestmark = pytest.mark.skip(
-        reason=(
-            "Host-side raw packet tests require host routing into Docker bridge "
-            "networks. Use the traffic generator manually from a client container "
-            "for full packet-level validation."
-        )
-    )
 
     @pytest.mark.parametrize("fw_ip", ALL_FW)
     def test_icmp_ping_via_scapy(self, fw_ip):

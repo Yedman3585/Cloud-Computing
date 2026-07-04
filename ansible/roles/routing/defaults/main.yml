@@ -1,0 +1,9 @@
+---
+routing_frontend_subnet_ipv4: 172.21.0.0/24
+routing_frontend_subnet_ipv6: "fd00:21::/64"
+
+routing_backend_subnet_ipv4: 172.22.0.0/24
+routing_backend_subnet_ipv6: "fd00:22::/64"
+
+routing_frontend_vip_ipv4: 172.21.0.100
+routing_backend_vip_ipv4: 172.22.0.100

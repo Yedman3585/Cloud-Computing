@@ -1,4 +1,12 @@
 ---
+- name: Restart keepalived via supervisor
+  become: true
+  ansible.builtin.command:
+    cmd: supervisorctl restart keepalived
+  changed_when: true
+  listen: Restart keepalived
+  when: keepalived_service_mode == "supervisor"
+
 - name: Restart keepalived via service
   become: true
   ansible.builtin.service:
