@@ -1,10 +1,15 @@
-name: firewall-lab-ci
+﻿name: firewall-lab-ci
 
 on:
   push:
-    branches: [main, master, final]
+    branches: [main, master, final, lastrun]
   pull_request:
-    branches: [main, master, final]
+    branches: [main, master, final, lastrun]
+  workflow_dispatch:
+
+env:
+  FIREWALL_IMAGE_LOCAL: firewall-lab-firewall:ci
+  CLIENT_IMAGE_LOCAL: firewall-lab-client:ci
 
 jobs:
   validate:
@@ -32,9 +37,61 @@ jobs:
       - name: Compile Python modules
         run: python -m compileall -q ansible/library scripts monitoring tests
 
-  integration-test:
+  build-images:
     runs-on: ubuntu-latest
     needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build firewall OCI image
+        run: docker build -f docker/DockerFile -t "$FIREWALL_IMAGE_LOCAL" .
+
+      - name: Build client/test OCI image
+        run: docker build -f docker/Dockerfile.client -t "$CLIENT_IMAGE_LOCAL" .
+
+      - name: List built images
+        run: docker images | grep -E 'firewall-lab-(firewall|client)'
+
+  publish-images:
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: ${{ vars.PUBLISH_OCI_IMAGES == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check registry settings
+        run: |
+          test -n "${{ vars.GITEA_REGISTRY }}"
+          test -n "${{ vars.GITEA_IMAGE_NAMESPACE }}"
+          test -n "${{ secrets.GITEA_REGISTRY_USER }}"
+          test -n "${{ secrets.GITEA_REGISTRY_TOKEN }}"
+
+      - name: Login to Gitea OCI registry
+        run: |
+          echo "${{ secrets.GITEA_REGISTRY_TOKEN }}" | \
+            docker login "${{ vars.GITEA_REGISTRY }}" \
+              --username "${{ secrets.GITEA_REGISTRY_USER }}" \
+              --password-stdin
+
+      - name: Build and push firewall image
+        run: |
+          short_sha="$(git rev-parse --short HEAD)"
+          image="${{ vars.GITEA_REGISTRY }}/${{ vars.GITEA_IMAGE_NAMESPACE }}/firewall-lab-firewall"
+          docker build -f docker/DockerFile -t "$image:$short_sha" -t "$image:latest" .
+          docker push "$image:$short_sha"
+          docker push "$image:latest"
+
+      - name: Build and push client/test image
+        run: |
+          short_sha="$(git rev-parse --short HEAD)"
+          image="${{ vars.GITEA_REGISTRY }}/${{ vars.GITEA_IMAGE_NAMESPACE }}/firewall-lab-client"
+          docker build -f docker/Dockerfile.client -t "$image:$short_sha" -t "$image:latest" .
+          docker push "$image:$short_sha"
+          docker push "$image:latest"
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: build-images
     steps:
       - uses: actions/checkout@v4
 

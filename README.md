@@ -985,13 +985,19 @@ This is similar to GitLab CI, but written for Gitea Actions.
 The repository keeps the workflow only in the standard path that Gitea Actions
 detects: `.gitea/workflows/ci.yml`.
 
+Detailed setup steps for the Gitea instance, runner, registry variables, and
+optional Kubernetes rollout are documented in `docs/gitea-setup.md`.
+
 Latest observed workflow parse check from 2026-07-04:
 
 ```text
 .gitea/workflows/ci.yml exists
 workflow: firewall-lab-ci
-jobs: validate, integration-test
+branches_push: main, master, final, lastrun
+jobs: validate, build-images, publish-images, integration-test
 validate_steps: 6
+build-images_steps: 4
+publish-images_steps: 5
 integration-test_steps: 8
 ```
 
