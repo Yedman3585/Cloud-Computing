@@ -1382,9 +1382,9 @@ AI documentation:
 
 Course and technical references used while designing and checking the project:
 
-- Cloud Computing 07 Ansible lecture material: https://moodle.hof-university.de/pluginfile.php/1059261/mod_resource/content/1/CloudComputing_07_Ansible.pdf
-- Professor's Cloud Computing GitLab examples: https://gitlab.hof-university.de/wwiedermann/20261_cloudcomputing
-- Ansible YAML syntax reference: https://docs.ansible.com/projects/ansible/latest/reference_appendices/YAMLSyntax.html
+- https://moodle.hof-university.de/pluginfile.php/1059261/mod_resource/content/1/CloudComputing_07_Ansible.pdf
+- https://gitlab.hof-university.de/wwiedermann/20261_cloudcomputing
+- https://docs.ansible.com/projects/ansible/latest/reference_appendices/YAMLSyntax.html
 
 The most important Ansible-related course idea applied here is desired state
 configuration: inventory and group variables describe what the firewall lab
