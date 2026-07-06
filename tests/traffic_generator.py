@@ -315,10 +315,6 @@ class TrafficGenerator:
 import pytest
 import os
 
-pytestmark = pytest.mark.skip(
-    reason="Manual raw Scapy traffic tests require host raw-packet routing; container-based integration tests cover the automated CI path."
-)
-
 FW1_FRONT = os.environ.get("FW1_IP", "172.21.0.11")
 FW2_FRONT = os.environ.get("FW2_IP", "172.21.0.12")
 FW3_FRONT = os.environ.get("FW3_IP", "172.21.0.13")

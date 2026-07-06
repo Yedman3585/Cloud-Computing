@@ -93,13 +93,7 @@ def compute_health_summary(snapshots: list) -> dict:
 
     events = [s["event"] for s in snapshots if s.get("event")]
     split_brain_snaps = [s for s in snapshots if s.get("split_brain_vips")]
-    available_snaps = sum(
-        1
-        for s in snapshots
-        if s.get("all_vips_consistent")
-        and not s.get("split_brain_vips")
-        and not s.get("missing_vips")
-    )
+    healthy_snaps = sum(1 for s in snapshots if s.get("all_healthy"))
 
     # vip_owners is a dict per snapshot like {"mgmt": "fw1", "frontend": "fw1", ...}
     last_vip_owners = snapshots[-1].get("vip_owners", {}) if snapshots else {}
@@ -109,7 +103,7 @@ def compute_health_summary(snapshots: list) -> dict:
         "failover_events": events,
         "failover_count": len(events),
         "split_brain_count": len(split_brain_snaps),
-        "cluster_uptime_pct": round(available_snaps / len(snapshots) * 100, 1) if snapshots else 0,
+        "cluster_uptime_pct": round(healthy_snaps / len(snapshots) * 100, 1) if snapshots else 0,
         "last_vip_owners": last_vip_owners,
     }
 
@@ -217,11 +211,11 @@ def generate_html(summary: dict, health_summary: dict, generated_at: str) -> str
     </div>
     <div class="stat">
       <div class="value">{health_summary.get('cluster_uptime_pct', 'N/A')}%</div>
-      <div class="label">VIP availability</div>
+      <div class="label">Cluster uptime</div>
     </div>
     <div class="stat">
       <div class="value">{health_summary.get('failover_count', 0)}</div>
-      <div class="label">Failover/availability events</div>
+      <div class="label">Failover/split-brain events</div>
     </div>
   </div>
 </div>
@@ -232,7 +226,7 @@ def generate_html(summary: dict, health_summary: dict, generated_at: str) -> str
 </div>
 
 <div class="card">
-  <h2>Failover / Availability Events</h2>
+  <h2>Failover / Split-Brain Events</h2>
   {events_html}
 </div>
 

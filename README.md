@@ -11,15 +11,15 @@ Ansible renders and applies real firewall rules, Keepalived owns and moves the
 VIPs, conntrackd runs, routes force client/server traffic through the firewall,
 and automated tests prove allowed traffic passes while blocked traffic fails.
 
-Latest local verification in this repository copy: 2026-07-04
+Latest local verification in this repository copy: 2026-07-06
 
 - Docker Compose stack: started successfully
 - Ansible deployment: passed with `failed=0`
 - Full integration test playbook: passed
 - Test result: 85 passed, 0 failed, 11 skipped
-- VIP availability during the automated failover test run: 90.3%
+- VIP availability during the automated failover stress run: 65.5%
 - Recorded failover events during the failover tests: 11
-- Confirmed split-brain events in the generated report: 0
+- Health monitor note: one transient split-brain snapshot was recorded during the forced failover/double-failure stress path; pytest assertions still passed and final VIP ownership returned to fw1
 
 Generated local report after tests:
 
@@ -43,7 +43,8 @@ test_results/pytest.stderr.log
 7. [Important Ansible Files](#7-important-ansible-files)
 8. [Firewall Rules And nftables Evidence](#8-firewall-rules-and-nftables-evidence)
 9. [Improvements After Review](#9-improvements-after-review)
-10. [Troubleshooting](#10-troubleshooting)
+10. [AI Usage Documentation And References](#10-ai-usage-documentation-and-references)
+11. [Troubleshooting](#11-troubleshooting)
 
 ---
 
@@ -142,7 +143,7 @@ This runs:
 - `ansible-playbook ansible/playbooks/site.yml --syntax-check`
 - `ansible-lint ansible/`
 
-Latest observed static-check output from 2026-07-04:
+Latest observed static-check output from 2026-07-06:
 
 ```text
 Using Python: .venv_linux/bin/python
@@ -195,7 +196,7 @@ ANSIBLE_CONFIG=ansible/ansible.cfg \
 
 A successful deployment ends with `failed=0` for all hosts.
 
-Latest observed Ansible deployment evidence from 2026-07-04:
+Latest observed Ansible deployment evidence from 2026-07-06:
 
 ```text
 TASK [Validate firewall inventory and rule references]
@@ -276,7 +277,7 @@ Expected pytest summary from the latest local run:
 85 passed, 11 skipped
 ```
 
-Latest observed test-playbook result from 2026-07-04:
+Latest observed test-playbook result from 2026-07-06:
 
 ```text
 TASK [Verify test Python environment has pytest]
@@ -432,7 +433,7 @@ Why this matters:
 - drop logging proves blocked traffic is observable.
 - NAT table proves extra routing behavior is present and applied.
 
-Latest observed nftables excerpt from 2026-07-04:
+Latest observed nftables excerpt from 2026-07-06:
 
 ```text
 table inet filter {
@@ -561,7 +562,7 @@ client2  up
 client3  up
 ```
 
-Latest observed Docker Compose status from 2026-07-04:
+Latest observed Docker Compose status from 2026-07-06:
 
 ```text
 NAME      SERVICE   STATUS                    PORTS
@@ -588,7 +589,7 @@ done
 
 Expected after normal deployment: all three VIPs are owned by `fw1`.
 
-Latest observed VIP ownership from 2026-07-04:
+Latest observed VIP ownership from 2026-07-06:
 
 ```text
 fw1 eth2: 172.20.0.11/24 + 172.20.0.100/24 secondary
@@ -612,7 +613,7 @@ done
 
 This proves the HA process and state-sync process are running.
 
-Latest observed service output from 2026-07-04:
+Latest observed service output from 2026-07-06:
 
 ```text
 supervisorctl status keepalived:
@@ -705,7 +706,7 @@ Look for:
 - HTTP 80/443 forward accept rule
 - drop logging rules
 
-Additional syntax and consistency checks from 2026-07-04:
+Additional syntax and consistency checks from 2026-07-06:
 
 ```text
 docker exec fw1 nft -c -f /etc/nftables.conf
@@ -732,7 +733,7 @@ done
 
 Expected: `200`.
 
-Latest observed allowed-traffic output from 2026-07-04:
+Latest observed allowed-traffic output from 2026-07-06:
 
 ```text
 Command: curl -s -m 4 -o /dev/null -w '%{http_code}' http://172.22.0.32:80/
@@ -757,7 +758,7 @@ done
 
 Expected: timeout or `000`.
 
-Latest observed blocked-traffic output from 2026-07-04:
+Latest observed blocked-traffic output from 2026-07-06:
 
 ```text
 server2 local 8080 rc=0
@@ -791,11 +792,11 @@ Expected:
 - after stop: `fw2` owns all VIPs
 - after restart: `fw1` reclaims all VIPs
 
-Latest observed failover evidence from generated health summary on 2026-07-04:
+Latest observed failover evidence from generated health summary on 2026-07-06:
 
 ```text
 failover events recorded: 11
-confirmed split-brain events: 0
+transient split-brain snapshots recorded by monitor: 1 during forced failover stress
 last VIP owners: mgmt=fw1, frontend=fw1, backend=fw1
 sample events:
 - FAILOVER[mgmt]: fw1 -> fw2; FAILOVER[frontend]: fw1 -> fw2; FAILOVER[backend]: fw1 -> fw2
@@ -826,7 +827,7 @@ Expected:
 - client route goes via `172.21.0.100`
 - server route goes via `172.22.0.100`
 
-Latest observed route output from 2026-07-04:
+Latest observed route output from 2026-07-06:
 
 ```text
 client1 -> 172.22.0.32: 172.22.0.32 via 172.21.0.100 dev eth0 src 172.21.0.21 uid 0
@@ -895,61 +896,48 @@ The latest `origin/main` monitoring updates are also preserved in this final bra
 - `monitoring/analyzers/bandwidth_analyzer.py` supports per-interface bandwidth visibility.
 - `monitoring/alerts/alert_monitor.py` provides an optional host-side Telegram alert monitor for blocked-IP events.
 
-Latest observed generated summary from 2026-07-04:
+Latest observed generated summary from 2026-07-06:
 
 ```text
-generated_at: 2026-07-04T15:02:06.550017
+generated_at: 2026-07-06T16:48:08.352221
 test_summary:
   passed: 85
   failed: 0
   skipped: 11
   total: 96
-  duration: 167.93 seconds
+  duration: 153.57 seconds
   success: true
 health_summary:
-  total_snapshots: 31
+  total_snapshots: 29
   failover_count: 11
-  split_brain_count: 0
-  cluster_uptime_pct: 90.3
+  split_brain_count: 1
+  cluster_uptime_pct: 65.5
   last_vip_owners:
     mgmt: fw1
     frontend: fw1
     backend: fw1
 ```
 
+The split-brain count is one transient monitor snapshot from the forced failover/double-failure stress path. The integration tests still passed because the cluster recovered and the final VIP ownership returned to `fw1` on all three networks.
 #### Metrics and integrity checks
 
-```bash
-make monitor-metrics
-```
-
-This reads live data from `fw1`:
-
-- nftables rule count
-- conntrack connection count
-
-Direct commands:
+`make monitor-metrics` collects and prints the local metrics defined by the Makefile. For firewall-specific proof, inspect the running `fw1` container directly:
 
 ```bash
-python monitoring/scripts/collect_metrics.py --container fw1 --output test_results/metrics.json
-python monitoring/scripts/integrity_check.py --container fw1 --state-file test_results/rules_hash.json
+docker exec fw1 sh -lc 'nft list ruleset | grep -c counter'
+docker exec fw1 sh -lc 'conntrack -C'
+docker exec fw1 sh -lc 'sha256sum /etc/nftables.conf'
 ```
 
-Latest observed metrics and integrity output from 2026-07-04:
+Latest observed firewall metrics and integrity output from `fw1` on 2026-07-06:
 
 ```text
-python monitoring/scripts/collect_metrics.py --container fw1 --output test_results/metrics.json
-{
-  "timestamp": "2026-07-04T14:37:27.273790",
-  "container": "fw1",
-  "nftables_rules": 18,
-  "connections": "6"
-}
-
-python monitoring/scripts/integrity_check.py --container fw1 --state-file test_results/rules_hash.json
-[PASS] Rules unchanged
+nft counter rules: 18
+conntrack count: 6
+rules sha256: ce62346c0bb724418b052a1ed5e6e428340984592fe489dd60f09aed3e882e79  /etc/nftables.conf
 ```
 
+This is useful because it checks the running firewall node itself, not only repository files. The counter count shows that the generated nftables policy contains real executable rules, `conntrack -C` shows active state tracking, and the checksum gives a stable integrity marker for the rendered `/etc/nftables.conf`.
 ---
 
 ## 4. Infrastructure And Gitea
@@ -988,7 +976,7 @@ detects: `.gitea/workflows/ci.yml`.
 Detailed setup steps for the Gitea instance, runner, registry variables, and
 optional Kubernetes rollout are documented in `docs/gitea-setup.md`.
 
-Latest observed workflow parse check from 2026-07-04:
+Latest observed workflow parse check from 2026-07-06:
 
 ```text
 .gitea/workflows/ci.yml exists
@@ -1352,15 +1340,26 @@ is what the lab needs for a real HA firewall path.
 ### 9.6 conntrackd was connected and tested
 
 conntrackd runs on the firewall nodes and the test suite checks process,
-configuration, socket, and sync activity.
+configuration, socket, and sync activity. In the final version, the conntrackd
+sync interface is derived from the detected management interface with a safe
+fallback instead of being only hard-coded. This makes the role more robust when
+Docker assigns interfaces in a different order.
 
-### 9.7 Port-isolation proof was added
+### 9.7 Alpine backend bootstrap was improved
+
+The routing role now bootstraps minimal Alpine backend containers more reliably
+by installing Python, bash, and iproute2 before applying routes. This matters
+because normal Ansible modules require Python on the managed target, while the
+nginx Alpine image does not provide the same baseline as Debian-based firewall
+or client containers.
+
+### 9.8 Port-isolation proof was added
 
 `server2` listens on more than one port, but only allowed ports are reachable
 through the firewall. This closes the weak argument that a blocked port might
 simply be closed on the server.
 
-### 9.8 Kubernetes files were removed
+### 9.9 Kubernetes files were removed
 
 The project is an infrastructure component. After instructor discussion, the
 focus was kept on Docker Compose, Gitea workflow, Ansible deployment, and real
@@ -1369,7 +1368,32 @@ or unproven production path.
 
 ---
 
-## 10. Troubleshooting
+## 10. AI Usage Documentation And References
+
+AI tools were used during the project, but their use is documented separately
+for transparency. The code was not accepted only because an AI tool generated
+it; AI output was reviewed against the course material, the professor's example
+repository, the agreed team architecture, and runtime verification results.
+
+AI documentation:
+
+- Team AI documentation for all members: https://docs.google.com/document/d/1Ib7Gq88vuzpHSePuDb54yeavhl8a8tRxOMuLts43P2o/edit?tab=t.0
+- Full Member 5 Ansible prompt documentation: https://docs.google.com/document/d/15P2ON8nWbpC8yPIZYH8-OSrFajq5AzmDLTRxhw9PafI/edit?tab=t.0
+
+Course and technical references used while designing and checking the project:
+
+- Cloud Computing 07 Ansible lecture material: https://moodle.hof-university.de/pluginfile.php/1059261/mod_resource/content/1/CloudComputing_07_Ansible.pdf
+- Professor's Cloud Computing GitLab examples: https://gitlab.hof-university.de/wwiedermann/20261_cloudcomputing
+- Ansible YAML syntax reference: https://docs.ansible.com/projects/ansible/latest/reference_appendices/YAMLSyntax.html
+
+The most important Ansible-related course idea applied here is desired state
+configuration: inventory and group variables describe what the firewall lab
+should look like, while playbooks and templates render that state into running
+configuration inside the Docker Compose environment.
+
+---
+
+## 11. Troubleshooting
 
 ### `docker compose exec -it fw1` fails
 

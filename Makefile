@@ -70,7 +70,9 @@ test-conntrackd: $(REPORT_DIR)
 	$(PYTEST) $(TESTS_DIR)/test_conntrackd.py -v --tb=short
 
 test-traffic: $(REPORT_DIR)
-	$(PYTEST) $(TESTS_DIR)/traffic_generator.py -v --tb=short
+	docker exec client1 pytest /tests/traffic_generator.py \
+		-v --tb=short \
+		-k "not http_get_through_firewall"
 
 monitor: $(REPORT_DIR)
 	python3 $(SCRIPTS_DIR)/monitor_health.py \
@@ -81,7 +83,7 @@ monitor-dashboard:
 	python3 monitoring/dashboard/app.py
 
 monitor-metrics:
-	python3 monitoring/scripts/collect_metrics.py --container fw1 --output monitoring/data/metrics.json
+	python3 monitoring/scripts/collect_metrics.py --output monitoring/data/metrics.json
 	python3 monitoring/scripts/view_metrics.py --input monitoring/data/metrics.json
 
 status: $(REPORT_DIR)

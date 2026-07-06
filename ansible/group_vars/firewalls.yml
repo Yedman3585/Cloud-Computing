@@ -65,6 +65,6 @@ keepalived_vrrp_instances:
     vip_ipv6: fd00:22::100/64
 
 conntrackd_service_mode: daemon
-conntrackd_interface: eth2
+conntrackd_interface: "{{ firewall_mgmt_interface | default('eth2') }}"
 conntrackd_sync_mode: NOTRACK
 conntrackd_port: 3780

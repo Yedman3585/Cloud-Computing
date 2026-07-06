@@ -45,9 +45,7 @@ class ClusterSnapshot:
     timestamp: str
     nodes: list = field(default_factory=list)
     vip_owners: dict = field(default_factory=dict)   # {"mgmt": "fw1", "frontend": "fw1", ...}
-    split_brain_vips: list = field(default_factory=list)  # VIPs owned by 2+ nodes in repeated snapshots
-    transient_split_brain_vips: list = field(default_factory=list)  # one-snapshot overlap during failover/preemption
-    missing_vips: list = field(default_factory=list)  # VIPs temporarily owned by no node
+    split_brain_vips: list = field(default_factory=list)  # VIPs owned by 0 or 2+ nodes
     all_healthy: bool = False
     all_vips_consistent: bool = False  # all VIPs owned by the exact same single node
     event: str = ""   # e.g. "FAILOVER: fw1 -> fw2" or "SPLIT-BRAIN: frontend"
@@ -85,8 +83,7 @@ class FirewallMonitor:
         self.output_file = output_file
         self._history: list[ClusterSnapshot] = []
         self._last_vip_owners: dict = {}
-        self._split_brain_streaks: dict[str, int] = {name: 0 for name in self.VIPS}
-        self._split_brain_confirm_after = 2
+
     # -------------------------------------------------------------------------
     # Low-level checks
     # -------------------------------------------------------------------------
@@ -201,31 +198,15 @@ class FirewallMonitor:
             name: owners[0] if len(owners) == 1 else (owners or None)
             for name, owners in owners_by_vip.items()
         }
-        current_split_brain_vips = [
-            name for name, owners in owners_by_vip.items() if len(owners) > 1
+        snap.split_brain_vips = [
+            name for name, owners in owners_by_vip.items() if len(owners) != 1
         ]
-        snap.missing_vips = [
-            name for name, owners in owners_by_vip.items() if len(owners) == 0
-        ]
-
-        snap.split_brain_vips = []
-        snap.transient_split_brain_vips = []
-        for vip_name in self.VIPS:
-            if vip_name in current_split_brain_vips:
-                self._split_brain_streaks[vip_name] += 1
-                if self._split_brain_streaks[vip_name] >= self._split_brain_confirm_after:
-                    snap.split_brain_vips.append(vip_name)
-                else:
-                    snap.transient_split_brain_vips.append(vip_name)
-            else:
-                self._split_brain_streaks[vip_name] = 0
 
         single_owners = {
             name: owners[0] for name, owners in owners_by_vip.items() if len(owners) == 1
         }
         snap.all_vips_consistent = (
-            not current_split_brain_vips
-            and not snap.missing_vips
+            not snap.split_brain_vips
             and len(set(single_owners.values())) == 1
         )
 
@@ -235,14 +216,12 @@ class FirewallMonitor:
         events = []
         for vip_name, owner in snap.vip_owners.items():
             previous = self._last_vip_owners.get(vip_name)
-            if isinstance(owner, str) and owner != previous:
-                if isinstance(previous, str):
+            if owner != previous:
+                if previous is not None and owner is not None:
                     events.append(f"FAILOVER[{vip_name}]: {previous} -> {owner}")
                 self._last_vip_owners[vip_name] = owner
         if snap.split_brain_vips:
-            events.append(f"CONFIRMED SPLIT-BRAIN detected on: {', '.join(snap.split_brain_vips)}")
-        if snap.missing_vips:
-            events.append(f"VIP owner temporarily missing on: {', '.join(snap.missing_vips)}")
+            events.append(f"SPLIT-BRAIN detected on: {', '.join(snap.split_brain_vips)}")
         snap.event = "; ".join(events)
 
         return snap
@@ -260,11 +239,7 @@ class FirewallMonitor:
         for node in snap.nodes:
             print(node.status_line())
         if snap.split_brain_vips:
-            print(f"\n  *** WARNING: CONFIRMED SPLIT-BRAIN on {', '.join(snap.split_brain_vips)} ***")
-        if snap.transient_split_brain_vips:
-            print(f"\n  *** TRANSIENT VIP overlap on {', '.join(snap.transient_split_brain_vips)} ***")
-        if snap.missing_vips:
-            print(f"\n  *** VIP owner temporarily missing on {', '.join(snap.missing_vips)} ***")
+            print(f"\n  *** WARNING: SPLIT-BRAIN on {', '.join(snap.split_brain_vips)} ***")
         if snap.event:
             print(f"\n  *** EVENT: {snap.event} ***")
 
