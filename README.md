@@ -940,6 +940,114 @@ rules sha256: ce62346c0bb724418b052a1ed5e6e428340984592fe489dd60f09aed3e882e79  
 This is useful because it checks the running firewall node itself, not only repository files. The counter count shows that the generated nftables policy contains real executable rules, `conntrack -C` shows active state tracking, and the checksum gives a stable integrity marker for the rendered `/etc/nftables.conf`.
 ---
 
+### 3.5 Monitoring Dashboard, Drop Logging, Bandwidth and Alerts
+
+#### What it shows
+
+- Blocked source IPs, parsed from the firewall drop log
+- Active connections, grouped by protocol, state, and destination port
+- Per-interface bandwidth (Frontend, Backend, Management) as live bars
+- Service health and last-update time
+
+#### How drop logging works inside Docker
+
+A firewall node runs inside a container, and the standard nftables `log`
+statement writes to the kernel log, which is not visible inside containers. To
+make drops observable in the container, the ruleset uses NFLOG
+(`log prefix "DROP-IN " group 1 ... drop`) and a `ulogd2` service listens on that
+NFLOG group and writes the drops to `/var/log/firewall/dropped.log`, which the
+analyzers read. `ulogd2` is installed in the firewall image and started by
+supervisord, so this works automatically after `docker compose up`.
+
+#### Starting the stack
+
+The dashboard and its supporting services start automatically with the stack.
+From the repository root:
+
+```bash
+docker compose up -d --build
+```
+
+The `traffic-gen` container is included in the Compose file and continuously
+sends allowed and blocked traffic, so the dashboard and bandwidth bars are not
+empty on startup, without any manual command.
+
+#### IMPORTANT: deploy the firewall to see real blocks
+
+After `docker compose up`, the firewall ruleset is still minimal
+(`policy accept`), so no packets are dropped yet and the dashboard shows no new
+blocked traffic. To get real filtering and live drop logs, run the Ansible
+deployment first (see Installation), which applies the real default-drop ruleset
+with NFLOG logging:
+
+```bash
+ANSIBLE_CONFIG=ansible/ansible.cfg \
+  ansible-playbook ansible/playbooks/site.yml \
+  -i ansible/inventory/hosts.yml
+```
+
+After this, `policy drop` is active, blocked packets are logged, and the
+dashboard shows live blocked IPs.
+
+#### Viewing the dashboard
+
+The dashboard runs inside `fw1` (started by supervisord) and is published on
+port 5000. Open in a browser:
+
+```text
+http://localhost:5000
+```
+
+The same data is available as JSON endpoints:
+
+```bash
+docker exec fw1 sh -c 'curl -s http://localhost:5000/api/blocked'
+docker exec fw1 sh -c 'curl -s http://localhost:5000/api/connections'
+docker exec fw1 sh -c 'curl -s http://localhost:5000/api/bandwidth'
+docker exec fw1 sh -c 'curl -s http://localhost:5000/api/health'
+```
+
+#### Checking that monitoring works
+
+```bash
+# dashboard and logging services are running inside fw1
+docker exec fw1 ps aux | grep -E 'app.py|ulogd'
+
+# real drop log lines with source IPs (after Ansible deploy + some traffic)
+docker exec fw1 tail -5 /var/log/firewall/dropped.log
+
+# generate a blocked packet manually and see it appear
+docker exec client1 nc -w2 172.21.0.11 9999
+docker exec fw1 sh -c 'curl -s http://localhost:5000/api/blocked'
+```
+
+#### Rule integrity check
+
+`monitoring/scripts/integrity_check.py` hashes the deployed `/etc/nftables.conf`
+and reports when the ruleset changes:
+
+```bash
+docker cp monitoring/scripts/integrity_check.py fw1:/tmp/integrity_check.py
+docker exec fw1 python3 /tmp/integrity_check.py --state-file /tmp/rules_hash.json
+```
+
+The first run stores the hash; later runs report `Rules unchanged` or
+`Rules have changed`.
+
+#### Monitoring files
+
+| File | Purpose |
+| --- | --- |
+| `monitoring/dashboard/app.py` | Flask dashboard and JSON API (port 5000) |
+| `monitoring/dashboard/templates/index.html` | Dashboard page (tables + bandwidth bars) |
+| `monitoring/analyzers/log_analyzer.py` | Counts blocked source IPs from the drop log |
+| `monitoring/analyzers/conntrack_analyzer.py` | Parses `conntrack -L` into protocol/state/port stats |
+| `monitoring/analyzers/bandwidth_analyzer.py` | Per-interface bandwidth from `/proc/net/dev` |
+| `monitoring/scripts/integrity_check.py` | Detects changes to the deployed nftables ruleset |
+| `monitoring/scripts/collect_metrics.py` | Collects rule/connection metrics over time |
+| `monitoring/alerts/telegram_bot.py` | Sends a single Telegram message (env-based secrets) |
+| `monitoring/alerts/alert_monitor.py` | Host-side watcher that alerts on blocked-IP events |
+
 ## 4. Infrastructure And Gitea
 
 The infrastructure and CI/CD requirement is covered by a Gitea Actions workflow.
