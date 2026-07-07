@@ -1,8 +1,9 @@
-# Individual Report - Member 5: Ansible Orchestration, Routing, Integration and Documentation
+# Individual Report - Member 5: Ansible Orchestration and Final Integration
 
 **Name:** Yedige Mussabayev  
 **GitLab:** @yedman3585  
-**Branch:** `yedige-ansible`, final integration on `main`  
+**Main branch:** `yedige-ansible`
+**Final project branch:** `main`
 **Project:** Cloud Computing Group 05 - Topic 5.2: Scalable Firewall with Debian 13 and nftables  
 **Date:** July 2026
 
@@ -10,38 +11,41 @@
 
 ## 1. My Responsibilities
 
-As Member 5, I was responsible for the Ansible orchestration layer and for connecting several separately developed project parts into one repeatable deployment workflow.
+As Member 5, my main responsibility was the Ansible orchestration and integration layer of the project. The project was developed by several members in parallel, so my work was not limited to writing isolated Ansible files. A major part of my contribution was connecting the Docker infrastructure, firewall rules, high availability roles, routing, automated tests, monitoring output, and final documentation into one repeatable project workflow.
 
 My main responsibilities were:
 
-- Configure the Ansible project structure and execution settings
-- Connect Docker Compose infrastructure with Ansible deployment
-- Maintain the inventory structure used by the firewall cluster
-- Integrate firewall, keepalived, conntrackd and routing roles into one deployment playbook
-- Implement routing orchestration for clients and backend servers
-- Create the Ansible-based test orchestration playbook
-- Run and document WSL/Debian validation commands
-- Help integrate the work of other members into the final project version
-- Maintain final README sections for installation, verification, acceptance criteria and AI usage transparency
+- Build and maintain the Ansible project structure
+- Configure Ansible to work with Docker Compose containers
+- Maintain the inventory and group variable structure used by the deployment
+- Connect the firewall, common, keepalived, conntrackd, and routing roles into one deployment playbook
+- Implement and finalize the routing role so traffic passes through the firewall cluster
+- Create the Ansible playbook that runs the integration test suite and report generation
+- Run WSL/Linux Ansible syntax, lint, deployment, and integration-test checks
+- Help integrate teammate work into the final repository state
+- Document the final installation, test workflow, acceptance criteria, and verification evidence in README
+- Document transparent AI usage and references to course material
 
 ---
 
 ## 2. What I Implemented
 
-### 2.1 Ansible Project Configuration
+### 2.1 Ansible Configuration and Project Structure
 
-I worked on the Ansible project configuration so that the repository can be deployed consistently from the project root.
+I worked on the Ansible configuration so that the project can be executed from the repository root without relying on hidden local settings.
 
 Important files:
 
 | File | Purpose |
 |---|---|
-| `ansible/ansible.cfg` | Defines inventory, roles path, custom library path and Ansible defaults |
-| `ansible/requirements.yml` | Defines required Ansible collections, especially Docker-related modules |
-| `.ansible-lint` | Keeps linting compatible with the Docker/container-based lab environment |
-| `run_wsl_checks.sh` | Runs inventory graph, syntax check and ansible-lint in WSL/Linux |
+| `ansible/ansible.cfg` | Main Ansible configuration with inventory, roles path and library path |
+| `ansible/requirements.yml` | Required Ansible collections, especially Docker-related modules |
+| `.ansible-lint` | Lint configuration adjusted for the Docker/container lab environment |
+| `run_wsl_checks.sh` | Helper script for inventory graph, syntax check and ansible-lint |
+| `requirements.txt` | Python dependencies for Ansible, pytest, reports and monitoring |
+| `Makefile` | Common commands for build, deploy, test, status and monitoring |
 
-The purpose was to make the Ansible part reproducible instead of depending on manual local configuration.
+This part is important because the professor or another user should be able to clone the repository and run the same commands without manually guessing paths or Ansible settings.
 
 Validation command:
 
@@ -49,7 +53,7 @@ Validation command:
 bash run_wsl_checks.sh
 ```
 
-Observed result in the final version:
+Observed final output:
 
 ```text
 === Running Inventory Graph ===
@@ -72,27 +76,25 @@ playbook: ansible/playbooks/site.yml
 Passed: 0 failure(s), 0 warning(s)
 ```
 
-### 2.2 Inventory and Variable Integration
+### 2.2 Inventory and Group Variable Integration
 
-The final project uses an Ansible inventory that describes the Docker Compose lab nodes and connects them to firewall-specific variables.
+The project uses Ansible inventory and group variables to describe the desired infrastructure state. I helped align this structure with the final Docker Compose topology and with the needs of the firewall, HA, and routing roles.
 
 Important files:
 
 | File | Purpose |
 |---|---|
 | `ansible/inventory/hosts.yml` | YAML inventory for firewalls, backend servers and test clients |
-| `ansible/inventory/hosts.ini` | Inventory compatibility format |
-| `ansible/group_vars/all.yml` | Shared network topology, VIPs, firewall objects and firewall rules |
+| `ansible/inventory/hosts.ini` | Inventory compatibility file |
+| `ansible/group_vars/all.yml` | Shared lab topology, firewall objects, VIPs and firewall rules |
 | `ansible/group_vars/firewalls.yml` | Firewall-specific package, nftables, keepalived and conntrackd variables |
-| `ansible/library/inventory_validate.py` | Custom validation module for the inventory contract |
+| `ansible/library/inventory_validate.py` | Custom module that validates the inventory contract before deployment |
 
-I helped align these variables with the final Docker Compose topology and with the requirements of the firewall, HA and routing roles.
+The goal was to avoid a hardcoded firewall configuration. The firewall policy is defined in variables and rendered into nftables rules by Ansible templates. This follows the desired-state approach from the course Ansible material.
 
-The important design decision was to keep the firewall policy readable in group variables instead of hardcoding everything inside shell commands. This follows the desired-state idea from the course Ansible material.
+### 2.3 Main Deployment Playbook
 
-### 2.3 Site Deployment Playbook
-
-I worked on the main deployment playbook that connects all Ansible roles into one repeatable rollout.
+I worked on the main Ansible deployment playbook.
 
 File:
 
@@ -100,19 +102,21 @@ File:
 ansible/playbooks/site.yml
 ```
 
-The playbook performs three main phases:
+The playbook has three logical parts:
 
 1. Validate the firewall inventory contract
-2. Configure firewall cluster nodes using the common, firewall, keepalived and conntrackd roles
-3. Configure routing on backend servers and test clients
+2. Configure firewall nodes with the common, firewall, keepalived and conntrackd roles
+3. Configure routes on backend servers and test clients
 
-This allows the project to be deployed with one command:
+Run command:
 
 ```bash
 ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml -i ansible/inventory/hosts.yml
 ```
 
-Final observed result:
+This playbook is the central deployment entry point. It makes the firewall lab repeatable: after Docker Compose starts the containers, Ansible applies the actual firewall and HA configuration.
+
+Observed final result:
 
 ```text
 PLAY RECAP
@@ -128,7 +132,7 @@ client3 failed=0
 
 ### 2.4 Routing Role
 
-I implemented and finalized the routing role that forces lab traffic through the firewall cluster instead of bypassing it.
+I implemented and finalized the routing role.
 
 Files:
 
@@ -137,20 +141,13 @@ ansible/roles/routing/defaults/main.yml
 ansible/roles/routing/tasks/main.yml
 ```
 
-The routing role is important because the project is not only about containers existing. Traffic from clients to backend servers must actually pass through the firewall path.
+The routing role is necessary because the project is not only about starting containers. Client-to-backend traffic must pass through the firewall cluster. The role configures routes so frontend clients and backend servers use the firewall cluster VIPs instead of bypassing the firewall path.
 
-The role configures routes for:
+The routing role was also adjusted for container compatibility. In particular, Alpine-based backend containers needed additional handling because they do not always provide the same tools as Debian-based containers.
 
-- frontend clients
-- backend servers
-- Alpine-based backend containers
-- Docker Compose network paths
+### 2.5 Integration Test Orchestration Playbook
 
-This part was also adjusted after testing because some backend containers use Alpine tooling and required compatibility handling.
-
-### 2.5 Integration Test Orchestration with Ansible
-
-I created and finalized the Ansible playbook that runs the integration test workflow after deployment.
+I created and finalized the Ansible playbook that runs the automated integration tests.
 
 File:
 
@@ -158,17 +155,19 @@ File:
 ansible/playbooks/run_tests.yml
 ```
 
-The playbook performs:
+The playbook performs the following steps:
 
-1. Verify pytest is available in the active virtual environment
-2. Wait until firewall containers become healthy
-3. Start the health monitor in the background
-4. Wait for Keepalived election to settle
-5. Run the pytest integration suite
-6. Save stdout and stderr logs
-7. Stop the health monitor
-8. Generate the combined HTML report
-9. Fail the playbook when pytest fails
+1. Detect the correct Python interpreter from the virtual environment
+2. Create the test results directory
+3. Verify that pytest is available
+4. Wait for firewall containers to become healthy
+5. Start the health monitor in the background
+6. Wait for Keepalived election to settle
+7. Run pytest with JSON and HTML report output
+8. Save stdout and stderr logs
+9. Stop the background health monitor
+10. Generate the final HTML laboratory report
+11. Fail the playbook if pytest failed
 
 Run command:
 
@@ -176,44 +175,62 @@ Run command:
 ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/run_tests.yml
 ```
 
-Final observed result:
+Observed final result:
 
 ```text
 pytest exit: 0
 PLAY RECAP
-localhost ok=11 failed=0 skipped=2
+localhost ok=11 changed=0 failed=0 skipped=2
 ```
 
-### 2.6 Connecting Work from Other Members
+### 2.6 Final Integration of Teammate Parts
 
-A large part of my work was integration work. The project parts were developed separately, so they had to be connected into one runnable lab.
+A large part of my work was integration. The separate parts from different members had to become one runnable system.
 
 I helped connect:
 
-- Member 1 firewall/nftables work with Ansible role execution
-- Member 2 Docker Compose infrastructure with Ansible inventory and routing
-- Member 3 high availability and CI/Gitea direction with the final delivery structure
-- Member 4 monitoring and automated tests with Ansible test orchestration
+| Area | Integration work |
+|---|---|
+| Docker infrastructure | Connected Docker Compose service names, networks and IPs to Ansible inventory |
+| Firewall rules | Connected group variable rule definitions to the nftables role and verification output |
+| High availability | Connected Keepalived and conntrackd roles to the deployment playbook and tests |
+| Routing | Ensured clients and backend servers use firewall VIP routes |
+| Tests | Connected pytest tests with Ansible execution and generated reports |
+| Monitoring | Connected health monitoring and report generation to the test workflow |
+| Documentation | Added practical commands and evidence for the professor to verify the system quickly |
 
-This integration work was important because the project is graded as a working system, not as five isolated parts.
+This was necessary because the final grade depends on the complete system working together, not only on separate files existing in the repository.
 
-### 2.7 Final Documentation and Verification Evidence
+### 2.7 Final README and Verification Documentation
 
-I worked on the final README so that the professor can quickly understand what to run and what to check.
+I worked on the final README and project documentation so that the project can be reviewed and installed by another person.
 
-Important README topics I documented or helped finalize:
+Important documentation files:
+
+```text
+README.md
+docs/member-5-status.md
+docs/requirements-validation.md
+docs/team-integration-notes.md
+docs/gitea-setup.md
+docs/ci-runner-notes.md
+```
+
+Important topics documented in README:
 
 - installation requirements
 - Docker Compose startup
 - Ansible deployment
-- `nft list ruleset` proof inside `fw1`
+- expected firewall evidence
+- `nft list ruleset` inspection inside `fw1`
 - Keepalived VIP ownership checks
 - conntrackd synchronization checks
-- automated pytest results
+- pytest and Ansible test orchestration
+- generated HTML report
 - Gitea Actions notes
 - acceptance criteria
 - AI usage documentation links
-- team contribution summary
+- team contributions
 
 The most important proof command is:
 
@@ -221,21 +238,21 @@ The most important proof command is:
 docker exec fw1 nft list ruleset
 ```
 
-This command shows the firewall rules that are actually loaded in the Linux kernel. It is stronger evidence than reading a template file because it proves that Ansible rendered and applied the rules successfully.
+This command shows the rules that are actually loaded in the Linux kernel. This is stronger than only showing a Jinja2 template, because it proves that Ansible rendered and applied the firewall rules successfully.
 
 ---
 
 ## 3. Final Test Results
 
-The final project version passed the automated test suite.
+The final project version passed the automated integration tests.
 
-Main command:
+Main test command:
 
 ```bash
 ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/run_tests.yml
 ```
 
-Observed final result:
+Observed result:
 
 ```text
 85 passed, 0 failed, 11 skipped
@@ -252,7 +269,7 @@ test_results/pytest.stdout.log
 test_results/pytest.stderr.log
 ```
 
-The generated summary included:
+Final generated summary excerpt:
 
 ```text
 test_summary:
@@ -270,13 +287,13 @@ health_summary:
     backend: fw1
 ```
 
-The one split-brain count was a transient monitor snapshot during forced failover stress. The tests still passed and final VIP ownership returned to `fw1` on all three networks.
+The one split-brain count was a transient monitor snapshot during forced failover stress. The test suite still passed and final VIP ownership returned to `fw1` on all three networks.
 
 ---
 
 ## 4. Files I Worked On or Finalized
 
-### Ansible orchestration
+### Main Ansible files
 
 ```text
 ansible/ansible.cfg
@@ -287,7 +304,7 @@ ansible/roles/routing/defaults/main.yml
 ansible/roles/routing/tasks/main.yml
 ```
 
-### Inventory and firewall variable integration
+### Inventory and group variables
 
 ```text
 ansible/inventory/hosts.yml
@@ -297,7 +314,7 @@ ansible/group_vars/firewalls.yml
 ansible/library/inventory_validate.py
 ```
 
-### Project validation and local execution support
+### Project validation and execution helpers
 
 ```text
 .ansible-lint
@@ -307,7 +324,7 @@ Makefile
 run_wsl_checks.sh
 ```
 
-### Final integration and documentation
+### Documentation
 
 ```text
 README.md
@@ -318,59 +335,83 @@ docs/gitea-setup.md
 docs/ci-runner-notes.md
 ```
 
-### Integration touchpoints with other members
+### Shared integration touchpoints
 
 ```text
 docker-compose.yml
 scripts/monitor_health.py
 scripts/generate_report.py
 tests/conftest.py
-tests/test_failover.py
 tests/test_conntrackd.py
+tests/test_failover.py
 tests/test_ipv6.py
 tests/test_nftables_rules.py
 tests/test_port_isolation.py
 ```
 
-Some of these files were shared integration files. My role was not always to create them alone, but to connect, adapt, test and document them inside the final working system.
+Some of these files were shared integration files. My role was not always to create them alone. In several cases my contribution was to adapt, connect, test, document or finalize them so the complete project worked as one system.
 
 ---
 
-## 5. Challenges and Solutions
+## 5. Relevant Git Work
+
+My work was mainly developed and integrated through the `yedige-ansible` branch and later through final integration commits on `main`.
+
+Relevant branch commits include:
+
+| Commit | Description |
+|---|---|
+| `46caeb0` | Added Ansible roles to the correct repository structure |
+| `ebcf6ec` | Completed core Ansible infrastructure, linting and role testing direction |
+| `57cc65b` | Updated README documentation |
+| `9ea68ca` | Integrated Iliyas firewall branch into Ansible integration branch |
+| `a3321d6` | Integrated Aisana monitoring branch into Ansible integration branch |
+
+Relevant final integration commits include:
+
+| Commit | Description |
+|---|---|
+| `9d4e7c5` | Finalized tested firewall lab delivery |
+| `93fef9e` | Refined final README |
+| `4f1946f` | Added individual report of Yedige |
+
+---
+
+## 6. Challenges and Solutions
 
 | Challenge | Solution |
 |---|---|
-| Separate team parts did not run as one system at first | Connected Docker Compose, Ansible inventory, firewall roles, HA roles, tests and reports into one workflow |
-| Firewall containers existed but early rulesets were too empty | Added README proof based on `docker exec fw1 nft list ruleset` and ensured Ansible deployment applies real nftables policy |
-| Ansible roles had to run inside Docker containers without systemd | Adjusted service handling and lint configuration for supervisor/init/container compatibility |
-| Backend/client routing could bypass the firewall path | Added routing role so traffic goes through firewall VIPs |
-| Test execution needed to be repeatable | Created `run_tests.yml` to run pytest, monitor health and generate reports automatically |
-| README needed to prove behavior, not only describe it | Added real evidence fragments from Ansible, pytest, nftables, VIP ownership and generated summaries |
-| AI usage had to be transparent | Added documentation links and course/reference sources in README |
+| Separate member branches did not work as one complete system at first | Connected Docker Compose, Ansible inventory, roles, tests and reports into one workflow |
+| Ansible needed to manage Docker containers instead of normal VMs | Used Docker-compatible inventory and container-safe service handling |
+| Early firewall output could look too empty if Ansible deployment was not applied | Added real verification using `docker exec fw1 nft list ruleset` after deployment |
+| Routing could bypass the firewall path | Added and finalized the routing role through firewall VIPs |
+| Integration tests needed to run repeatably | Created `run_tests.yml` to automate pytest, health monitoring and report generation |
+| Generated reports needed to prove behavior, not just describe it | Added evidence from pytest, health monitor, VIP owners and nftables inspection |
+| AI usage had to be transparent | Added AI documentation links and course/reference sources in README |
 
 ---
 
-## 6. AI Usage
+## 7. AI Usage
 
-I used AI tools during the project, especially for planning, debugging, documentation drafts and checking Ansible/Jinja2/Python logic. The AI output was not accepted blindly.
+I used AI tools during the project for planning, debugging, refactoring suggestions, documentation structure and checking Ansible/Jinja2/Python logic. The AI output was not used blindly.
 
-My process was:
+My workflow was:
 
-1. Define the desired project behavior based on course material and team architecture
-2. Ask AI for implementation ideas or refactoring suggestions
-3. Compare the suggestions with Ansible, Docker and nftables requirements
-4. Adapt the code to the actual project structure
-5. Run real commands and tests before accepting the result
-6. Document the AI usage transparently
+1. Define the desired behavior using course material and the team architecture
+2. Ask AI for implementation ideas or review suggestions
+3. Compare the suggestions with Ansible, Docker, nftables and pytest requirements
+4. Adapt the result to the actual repository structure
+5. Run real commands and tests before accepting the work
+6. Document the usage transparently
 
-AI documentation links were added to the final README:
+The final README includes links to:
 
 ```text
 Team AI documentation for all members
 Full Member 5 Ansible prompt documentation
 ```
 
-Course and technical references used:
+References used during the work:
 
 ```text
 Cloud Computing 07 Ansible lecture material
@@ -380,18 +421,18 @@ Ansible YAML syntax reference
 
 ---
 
-## 7. Summary
+## 8. Summary
 
-My main contribution was making the project deployable, testable and explainable as one complete firewall lab.
+My main contribution was making the project deployable, testable and explainable as one integrated firewall lab.
 
 Completed work:
 
-- Ansible configuration and deployment structure completed
+- Ansible configuration and deployment workflow completed
 - Inventory and group variable integration completed
 - Routing through firewall cluster VIPs completed
 - Ansible-based integration test orchestration completed
-- Final WSL/Debian validation workflow completed
-- README verification and acceptance criteria completed
+- WSL/Linux Ansible checks completed
+- Final verification evidence documented
 - AI usage documentation references added
 - Final project integration passed automated tests
 
