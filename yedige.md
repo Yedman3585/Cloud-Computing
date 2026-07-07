@@ -404,20 +404,16 @@ My workflow was:
 5. Run real commands and tests before accepting the work
 6. Document the usage transparently
 
-The final README includes links to:
+The final README includes links to the AI usage documentation:
 
-```text
-Team AI documentation for all members
-Full Member 5 Ansible prompt documentation
-```
+- Team AI documentation for all members: https://docs.google.com/document/d/1Ib7Gq88vuzpHSePuDb54yeavhl8a8tRxOMuLts43P2o/edit?tab=t.0
+- Full Member 5 Ansible prompt documentation: https://docs.google.com/document/d/15P2ON8nWbpC8yPIZYH8-OSrFajq5AzmDLTRxhw9PafI/edit?tab=t.0
 
 References used during the work:
 
-```text
-Cloud Computing 07 Ansible lecture material
-Professor's Cloud Computing GitLab examples
-Ansible YAML syntax reference
-```
+- Cloud Computing 07 Ansible lecture material: https://moodle.hof-university.de/pluginfile.php/1059261/mod_resource/content/1/CloudComputing_07_Ansible.pdf
+- Professor's Cloud Computing GitLab examples: https://gitlab.hof-university.de/wwiedermann/20261_cloudcomputing
+- Ansible YAML syntax reference: https://docs.ansible.com/projects/ansible/latest/reference_appendices/YAMLSyntax.html
 
 ---
 
