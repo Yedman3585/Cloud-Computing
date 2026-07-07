@@ -1,6 +1,22 @@
 ---
-- name: Restart conntrackd
+- name: Restart conntrackd via its own daemon mode
+  become: true
+  ansible.builtin.shell: |
+    set -e
+    pkill -x conntrackd || true
+    rm -f {{ conntrackd_lock_path }} {{ conntrackd_socket_path }}
+    sleep 1
+    conntrackd -d -C /etc/conntrackd/conntrackd.conf
+  args:
+    executable: /bin/bash
+  changed_when: true
+  listen: Restart conntrackd
+  when: conntrackd_service_mode == "daemon"
+
+- name: Restart conntrackd via service
   become: true
   ansible.builtin.service:
     name: conntrackd
     state: restarted
+  listen: Restart conntrackd
+  when: conntrackd_service_mode == "service"

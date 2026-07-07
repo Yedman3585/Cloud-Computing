@@ -23,9 +23,43 @@
     mode: "0640"
   notify: Restart conntrackd
 
-- name: Ensure conntrackd is enabled and running
+- name: Ensure conntrackd is enabled and running (systemd-based hosts)
   become: true
   ansible.builtin.service:
     name: conntrackd
     state: started
     enabled: true
+  when: conntrackd_service_mode == "service"
+
+- name: Check whether conntrackd is already running (daemon mode)
+  become: true
+  ansible.builtin.command:
+    cmd: pgrep -x conntrackd
+  register: conntrackd_process_check
+  failed_when: false
+  changed_when: false
+  when: conntrackd_service_mode == "daemon"
+
+- name: Start conntrackd in its own daemon mode
+  become: true
+  ansible.builtin.shell: |
+    set -e
+    rm -f {{ conntrackd_lock_path }} {{ conntrackd_socket_path }}
+    conntrackd -d -C /etc/conntrackd/conntrackd.conf
+  args:
+    executable: /bin/bash
+  changed_when: true
+  when:
+    - conntrackd_service_mode == "daemon"
+    - conntrackd_process_check.rc != 0
+
+- name: Verify conntrackd control socket responds
+  become: true
+  ansible.builtin.command:
+    cmd: conntrackd -C /etc/conntrackd/conntrackd.conf -s
+  register: conntrackd_stats_check
+  retries: 5
+  delay: 2
+  until: conntrackd_stats_check.rc == 0
+  changed_when: false
+  when: conntrackd_service_mode == "daemon"

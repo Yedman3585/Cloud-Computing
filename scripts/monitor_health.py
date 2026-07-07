@@ -21,8 +21,9 @@ class NodeStatus:
     running: bool = False
     nftables_loaded: bool = False
     ssh_reachable: bool = False
-    holds_vip: bool = False
+    held_vips: list = field(default_factory=list)
     keepalived_running: bool = False
+    conntrackd_running: bool = False
     ip_addresses: list = field(default_factory=list)
     ruleset_tables: list = field(default_factory=list)
     error: str = ""
@@ -34,7 +35,7 @@ class NodeStatus:
     def status_line(self) -> str:
         """One-line summary for terminal output."""
         status = "HEALTHY" if self.healthy else "UNHEALTHY"
-        vip = " [VIP MASTER]" if self.holds_vip else ""
+        vip = f" [VIPS: {', '.join(self.held_vips)}]" if self.held_vips else ""
         return f"  {self.container}: {status}{vip}"
 
 
@@ -43,9 +44,11 @@ class ClusterSnapshot:
     """Full cluster health snapshot at one point in time."""
     timestamp: str
     nodes: list = field(default_factory=list)
-    vip_owner: Optional[str] = None
+    vip_owners: dict = field(default_factory=dict)   # {"mgmt": "fw1", "frontend": "fw1", ...}
+    split_brain_vips: list = field(default_factory=list)  # VIPs owned by 0 or 2+ nodes
     all_healthy: bool = False
-    event: str = ""   # e.g. "FAILOVER: fw1 -> fw2"
+    all_vips_consistent: bool = False  # all VIPs owned by the exact same single node
+    event: str = ""   # e.g. "FAILOVER: fw1 -> fw2" or "SPLIT-BRAIN: frontend"
 
 
 # =============================================================================
@@ -56,14 +59,15 @@ class FirewallMonitor:
     """
     Polls Docker containers and checks their health.
 
-    Args:
-        fw_containers:  List of container names to monitor
-        virtual_ip:     The Keepalived VIP to watch
-        mgmt_ips:       Dict mapping container name to management IP
-        output_file:    Optional path to write JSON log
+    Tracks all three cluster VIPs (mgmt, frontend, backend) so a split-brain
+    on any single network is detected, not just on the management VIP.
     """
 
-    VIRTUAL_IP = os.environ.get("VIRTUAL_IP", "172.20.0.100")
+    VIPS = {
+        "mgmt": os.environ.get("VIRTUAL_IP", "172.20.0.100"),
+        "frontend": os.environ.get("FRONTEND_VIP", "172.21.0.100"),
+        "backend": os.environ.get("BACKEND_VIP", "172.22.0.100"),
+    }
     FW_MGMT_IPS = {
         "fw1": os.environ.get("FW1_MGMT_IP", "172.20.0.11"),
         "fw2": os.environ.get("FW2_MGMT_IP", "172.20.0.12"),
@@ -78,7 +82,7 @@ class FirewallMonitor:
         self.containers = fw_containers or ["fw1", "fw2", "fw3"]
         self.output_file = output_file
         self._history: list[ClusterSnapshot] = []
-        self._last_vip_owner: Optional[str] = None
+        self._last_vip_owners: dict = {}
 
     # -------------------------------------------------------------------------
     # Low-level checks
@@ -125,14 +129,19 @@ class FirewallMonitor:
         rc, _ = self._run(container, "pgrep sshd")
         return rc == 0
 
-    def _check_vip(self, container: str) -> bool:
-        """Returns True if this container holds the VIP."""
-        rc, out = self._run(container, f"ip addr show | grep {self.VIRTUAL_IP}")
-        return rc == 0 and self.VIRTUAL_IP in out
+    def _check_vip(self, container: str, vip_ip: str) -> bool:
+        """Returns True if this container currently holds the given VIP."""
+        rc, out = self._run(container, f"ip addr show | grep {vip_ip}")
+        return rc == 0 and vip_ip in out
 
     def _check_keepalived(self, container: str) -> bool:
         """Returns True if keepalived process is running."""
-        rc, out = self._run(container, "pgrep keepalived")
+        rc, _ = self._run(container, "pgrep -x keepalived")
+        return rc == 0
+
+    def _check_conntrackd(self, container: str) -> bool:
+        """Returns True if conntrackd process is running."""
+        rc, _ = self._run(container, "pgrep -x conntrackd")
         return rc == 0
 
     def _get_ip_addresses(self, container: str) -> list:
@@ -159,20 +168,15 @@ class FirewallMonitor:
             status.error = "Container not running"
             return status
 
-        # nftables
         status.nftables_loaded, status.ruleset_tables = self._check_nftables(container)
-
-        # SSH
         status.ssh_reachable = self._check_ssh(container)
-
-        # VIP
-        status.holds_vip = self._check_vip(container)
-
-        # Keepalived
         status.keepalived_running = self._check_keepalived(container)
-
-        # IP addresses
+        status.conntrackd_running = self._check_conntrackd(container)
         status.ip_addresses = self._get_ip_addresses(container)
+
+        for vip_name, vip_ip in self.VIPS.items():
+            if self._check_vip(container, vip_ip):
+                status.held_vips.append(vip_name)
 
         return status
 
@@ -181,19 +185,44 @@ class FirewallMonitor:
         ts = datetime.now(timezone.utc).isoformat()
         snap = ClusterSnapshot(timestamp=ts)
 
-        for container in self.containers:
-            node_status = self.check_node(container)
-            snap.nodes.append(node_status)
-            if node_status.holds_vip:
-                snap.vip_owner = container
+        node_statuses = [self.check_node(c) for c in self.containers]
+        snap.nodes = node_statuses
 
-        snap.all_healthy = all(n.healthy for n in snap.nodes)
+        # Determine owner(s) of each VIP independently.
+        owners_by_vip: dict[str, list] = {name: [] for name in self.VIPS}
+        for node in node_statuses:
+            for vip_name in node.held_vips:
+                owners_by_vip[vip_name].append(node.container)
 
-        # Detect failover event
-        if snap.vip_owner != self._last_vip_owner:
-            if self._last_vip_owner is not None:
-                snap.event = f"FAILOVER: {self._last_vip_owner} -> {snap.vip_owner}"
-            self._last_vip_owner = snap.vip_owner
+        snap.vip_owners = {
+            name: owners[0] if len(owners) == 1 else (owners or None)
+            for name, owners in owners_by_vip.items()
+        }
+        snap.split_brain_vips = [
+            name for name, owners in owners_by_vip.items() if len(owners) != 1
+        ]
+
+        single_owners = {
+            name: owners[0] for name, owners in owners_by_vip.items() if len(owners) == 1
+        }
+        snap.all_vips_consistent = (
+            not snap.split_brain_vips
+            and len(set(single_owners.values())) == 1
+        )
+
+        snap.all_healthy = all(n.healthy for n in node_statuses) and snap.all_vips_consistent
+
+        # Detect failover / split-brain events relative to the previous snapshot.
+        events = []
+        for vip_name, owner in snap.vip_owners.items():
+            previous = self._last_vip_owners.get(vip_name)
+            if owner != previous:
+                if previous is not None and owner is not None:
+                    events.append(f"FAILOVER[{vip_name}]: {previous} -> {owner}")
+                self._last_vip_owners[vip_name] = owner
+        if snap.split_brain_vips:
+            events.append(f"SPLIT-BRAIN detected on: {', '.join(snap.split_brain_vips)}")
+        snap.event = "; ".join(events)
 
         return snap
 
@@ -205,10 +234,12 @@ class FirewallMonitor:
         """Print a formatted snapshot to stdout."""
         ts = datetime.now().strftime("%H:%M:%S")
         overall = "ALL HEALTHY" if snap.all_healthy else "DEGRADED"
-        vip = snap.vip_owner or "NONE"
-        print(f"\n[{ts}] Cluster: {overall}  |  VIP owner: {vip}")
+        vips_str = ", ".join(f"{k}={v or 'NONE'}" for k, v in snap.vip_owners.items())
+        print(f"\n[{ts}] Cluster: {overall}  |  VIPs: {vips_str}")
         for node in snap.nodes:
             print(node.status_line())
+        if snap.split_brain_vips:
+            print(f"\n  *** WARNING: SPLIT-BRAIN on {', '.join(snap.split_brain_vips)} ***")
         if snap.event:
             print(f"\n  *** EVENT: {snap.event} ***")
 
@@ -243,6 +274,7 @@ class FirewallMonitor:
         """
         print(f"Starting health monitor (interval={interval}s)")
         print(f"Watching: {', '.join(self.containers)}")
+        print(f"Tracking VIPs: {self.VIPS}")
         if self.output_file:
             print(f"Logging to: {self.output_file}")
         print("Press Ctrl+C to stop.\n")
@@ -261,7 +293,7 @@ class FirewallMonitor:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
-        description="Firewall node health monitor"
+        description="Firewall cluster health monitor (mgmt/frontend/backend VIPs)"
     )
     parser.add_argument(
         "--interval", type=float, default=5.0,

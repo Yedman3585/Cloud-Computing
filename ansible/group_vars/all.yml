@@ -51,6 +51,18 @@ firewall_rules:
     destination: any
     protocol: vrrp
     action: accept
+  - name: allow_keepalived_vrrp_frontend
+    chain: input
+    source: frontend_net
+    destination: any
+    protocol: vrrp
+    action: accept
+  - name: allow_keepalived_vrrp_backend
+    chain: input
+    source: backend_net
+    destination: any
+    protocol: vrrp
+    action: accept
   - name: allow_conntrackd_sync
     chain: input
     source: firewall_peer_net

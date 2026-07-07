@@ -87,20 +87,24 @@ def compute_summary(pytest_data: dict) -> dict:
 
 
 def compute_health_summary(snapshots: list) -> dict:
-    """Summarise health log: failover events, uptime %, etc."""
+    """Summarise health log: failover/split-brain events, uptime %, VIP owners."""
     if not snapshots:
         return {}
 
-    events = [s for s in snapshots if s.get("event")]
-    vip_owners = [s.get("vip_owner") for s in snapshots if s.get("vip_owner")]
+    events = [s["event"] for s in snapshots if s.get("event")]
+    split_brain_snaps = [s for s in snapshots if s.get("split_brain_vips")]
     healthy_snaps = sum(1 for s in snapshots if s.get("all_healthy"))
+
+    # vip_owners is a dict per snapshot like {"mgmt": "fw1", "frontend": "fw1", ...}
+    last_vip_owners = snapshots[-1].get("vip_owners", {}) if snapshots else {}
 
     return {
         "total_snapshots": len(snapshots),
-        "failover_events": [s["event"] for s in events],
+        "failover_events": events,
         "failover_count": len(events),
+        "split_brain_count": len(split_brain_snaps),
         "cluster_uptime_pct": round(healthy_snaps / len(snapshots) * 100, 1) if snapshots else 0,
-        "vip_owners": list(set(vip_owners)),
+        "last_vip_owners": last_vip_owners,
     }
 
 
@@ -121,7 +125,6 @@ def generate_html(summary: dict, health_summary: dict, generated_at: str) -> str
     pass_color = "#2d6a4f" if summary["success"] else "#9b2226"
     pass_label = "ALL PASSED" if summary["success"] else f"{summary['failed']} FAILED"
 
-    # Build test rows
     test_rows = []
     for t in tests:
         name = t.get("nodeid", "unknown")
@@ -145,12 +148,19 @@ def generate_html(summary: dict, health_summary: dict, generated_at: str) -> str
 
     test_table = "\n".join(test_rows) if test_rows else "<tr><td colspan='3'>No test data</td></tr>"
 
-    # Failover events
     events_html = ""
     for ev in health_summary.get("failover_events", []):
-        events_html += f'<div style="background:#fff3cd;border-left:4px solid #f0ad4e;padding:8px 12px;margin:4px 0;font-family:monospace">{ev}</div>'
+        is_split_brain = "SPLIT-BRAIN" in ev
+        color = "#9b2226" if is_split_brain else "#f0ad4e"
+        events_html += f'<div style="background:{"#fdecea" if is_split_brain else "#fff3cd"};border-left:4px solid {color};padding:8px 12px;margin:4px 0;font-family:monospace">{ev}</div>'
     if not events_html:
-        events_html = '<div style="color:#555;font-style:italic">No failover events recorded.</div>'
+        events_html = '<div style="color:#555;font-style:italic">No failover or split-brain events recorded.</div>'
+
+    vip_owners = health_summary.get("last_vip_owners", {})
+    vip_rows = "".join(
+        f'<div style="font-family:monospace;margin:2px 0"><b>{name}</b>: {owner or "NONE"}</div>'
+        for name, owner in vip_owners.items()
+    ) or '<div style="color:#555;font-style:italic">No VIP data available.</div>'
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -205,13 +215,18 @@ def generate_html(summary: dict, health_summary: dict, generated_at: str) -> str
     </div>
     <div class="stat">
       <div class="value">{health_summary.get('failover_count', 0)}</div>
-      <div class="label">Failover events</div>
+      <div class="label">Failover/split-brain events</div>
     </div>
   </div>
 </div>
 
 <div class="card">
-  <h2>Failover Events</h2>
+  <h2>Current VIP Ownership (mgmt / frontend / backend)</h2>
+  {vip_rows}
+</div>
+
+<div class="card">
+  <h2>Failover / Split-Brain Events</h2>
   {events_html}
 </div>
 
@@ -295,7 +310,6 @@ def main():
 
     write_summary_json(summary, health_summary, os.path.dirname(args.output))
 
-    # Exit 1 if tests failed (useful for CI)
     sys.exit(0 if summary.get("success", False) else 1)
 
 

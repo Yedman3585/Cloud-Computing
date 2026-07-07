@@ -1,0 +1,52 @@
+---
+# Applies to test_clients (frontend_net) and backend_servers (backend_net).
+# Ensures traffic between the two networks transits the firewall cluster's
+# VIPs, so the firewall ruleset can actually be exercised end to end.
+
+- name: Bootstrap Python3 on minimal Alpine targets
+  # nginx:alpine ships no Python interpreter at all, so any normal Ansible
+  # module would fail before it even runs. The raw module is the one
+  # exception that works over a plain shell, with no Python required on
+  # the target, so we use it purely to install python3 once.
+  ansible.builtin.raw: command -v python3 >/dev/null 2>&1 || apk add --no-cache python3
+  when: inventory_hostname in groups['backend_servers']
+  changed_when: false
+
+- name: Ensure bash is present on Alpine backend servers
+  # The pytest helper run_in_container() always shells out via
+  # `docker exec <container> bash -c "..."`. Alpine's nginx image only
+  # ships /bin/sh by default, so without this, every pytest call against
+  # server1/server2 fails with exit code 126 ("bash not found").
+  become: true
+  ansible.builtin.package:
+    name: bash
+    state: present
+  when: inventory_hostname in groups['backend_servers']
+
+- name: Ensure iproute2 is present (works for apk and apt targets alike)
+  become: true
+  ansible.builtin.package:
+    name: iproute2
+    state: present
+  register: routing_iproute2_install
+  failed_when:
+    - routing_iproute2_install is failed
+    - "'Could not find a package' not in (routing_iproute2_install.msg | default(''))"
+
+- name: Add route to backend network via the frontend VIP (test_clients)
+  become: true
+  ansible.builtin.command:
+    cmd: >-
+      ip route replace {{ routing_backend_subnet_ipv4 }}
+      via {{ routing_frontend_vip_ipv4 }}
+  changed_when: true
+  when: inventory_hostname in groups['test_clients']
+
+- name: Add route to frontend network via the backend VIP (backend_servers)
+  become: true
+  ansible.builtin.command:
+    cmd: >-
+      ip route replace {{ routing_frontend_subnet_ipv4 }}
+      via {{ routing_backend_vip_ipv4 }}
+  changed_when: true
+  when: inventory_hostname in groups['backend_servers']

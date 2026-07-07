@@ -142,32 +142,39 @@ def validate_rules(rules: list[dict[str, Any]], objects: dict[str, Any], errors:
             errors.append(f"rule {rule_name}: ports are only valid for tcp/udp rules")
 
 
-def validate_keepalived_cluster(cluster: dict[str, Any], errors: list[str]) -> None:
-    if not cluster:
-        errors.append("keepalived_cluster must be defined")
+def validate_keepalived_instances(instances: list[dict[str, Any]], errors: list[str]) -> None:
+    if not instances:
+        errors.append("keepalived_vrrp_instances must define at least one VRRP instance")
         return
 
-    router_id = cluster.get("virtual_router_id")
-    try:
-        router_id_number = int(router_id)
-    except (TypeError, ValueError):
-        errors.append("keepalived_cluster.virtual_router_id must be an integer")
-    else:
-        if router_id_number < 1 or router_id_number > 255:
-            errors.append("keepalived_cluster.virtual_router_id must be between 1 and 255")
+    seen_router_ids: set[int] = set()
+    for instance in instances:
+        name = str(instance.get("name", "unknown"))
 
-    if not cluster.get("interface"):
-        errors.append("keepalived_cluster.interface must be defined")
-
-    for field, family in (("vip_ipv4", 4), ("vip_ipv6", 6)):
-        value = cluster.get(field)
-        if not value:
-            errors.append(f"keepalived_cluster.{field} must be defined")
-            continue
+        router_id = instance.get("virtual_router_id")
         try:
-            _validate_ip_network(str(value), family)
-        except ValueError as exc:
-            errors.append(f"keepalived_cluster.{field} is invalid: {exc}")
+            router_id_number = int(router_id)
+        except (TypeError, ValueError):
+            errors.append(f"keepalived instance {name}: virtual_router_id must be an integer")
+        else:
+            if router_id_number < 1 or router_id_number > 255:
+                errors.append(f"keepalived instance {name}: virtual_router_id must be between 1 and 255")
+            if router_id_number in seen_router_ids:
+                errors.append(f"keepalived instance {name}: duplicate virtual_router_id {router_id_number}")
+            seen_router_ids.add(router_id_number)
+
+        if not instance.get("interface"):
+            errors.append(f"keepalived instance {name}: interface must be defined")
+
+        for field, family in (("vip_ipv4", 4), ("vip_ipv6", 6)):
+            value = instance.get(field)
+            if not value:
+                errors.append(f"keepalived instance {name}: {field} must be defined")
+                continue
+            try:
+                _validate_ip_network(str(value), family)
+            except ValueError as exc:
+                errors.append(f"keepalived instance {name}: {field} is invalid: {exc}")
 
 
 def main() -> None:
@@ -179,7 +186,7 @@ def main() -> None:
             firewall_hostvars=dict(type="dict", required=True),
             firewall_objects=dict(type="dict", required=True),
             firewall_rules=dict(type="list", elements="dict", required=True),
-            keepalived_cluster=dict(type="dict", required=False, default={}),
+            keepalived_vrrp_instances=dict(type="list", elements="dict", required=False, default=[]),
             required_firewall_count=dict(type="int", default=3),
         ),
         supports_check_mode=True,
@@ -189,14 +196,14 @@ def main() -> None:
     hostvars = module.params["firewall_hostvars"]
     objects = module.params["firewall_objects"]
     rules = module.params["firewall_rules"]
-    cluster = module.params["keepalived_cluster"]
+    instances = module.params["keepalived_vrrp_instances"]
     required_count = module.params["required_firewall_count"]
 
     errors: list[str] = []
     validate_nodes(names, hostvars, required_count, errors)
     validate_objects(objects, errors)
     validate_rules(rules, objects, errors)
-    validate_keepalived_cluster(cluster, errors)
+    validate_keepalived_instances(instances, errors)
 
     if errors:
         module.fail_json(msg="inventory validation failed", errors=errors)

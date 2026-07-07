@@ -6,7 +6,6 @@ from typing import Optional
 
 import pytest
 
-
 FW1_MGMT = os.environ.get("FW1_MGMT_IP", "172.20.0.11")
 FW2_MGMT = os.environ.get("FW2_MGMT_IP", "172.20.0.12")
 FW3_MGMT = os.environ.get("FW3_MGMT_IP", "172.20.0.13")

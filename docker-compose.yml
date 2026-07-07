@@ -3,28 +3,34 @@ networks:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: br-mgmt
+    enable_ipv6: true
     ipam:
       config:
         - subnet: 172.20.0.0/24
           gateway: 172.20.0.1
+        - subnet: fd00:20::/64
 
   frontend_net:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: br-frontend
+    enable_ipv6: true
     ipam:
       config:
         - subnet: 172.21.0.0/24
           gateway: 172.21.0.1
+        - subnet: fd00:21::/64
 
   backend_net:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: br-backend
+    enable_ipv6: true
     ipam:
       config:
         - subnet: 172.22.0.0/24
           gateway: 172.22.0.1
+        - subnet: fd00:22::/64
 
 volumes:
   fw1_logs:
@@ -32,10 +38,9 @@ volumes:
   fw3_logs:
   test_results:
 
+
 services:
   fw1:
-    ports:
-      - "5000:5000"
     build:
       context: .
       dockerfile: docker/DockerFile
@@ -50,17 +55,25 @@ services:
       net.ipv4.ip_forward: 1
       net.ipv6.conf.all.forwarding: 1
       net.ipv4.ip_nonlocal_bind: 1
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    ports:
+      - "5000:5000"
     networks:
       mgmt_net:
         ipv4_address: 172.20.0.11
+        ipv6_address: fd00:20::11
       frontend_net:
         ipv4_address: 172.21.0.11
+        ipv6_address: fd00:21::11
       backend_net:
         ipv4_address: 172.22.0.11
+        ipv6_address: fd00:22::11
     volumes:
       - fw1_logs:/var/log
       - ./tests:/tests:ro
-      - ./monitoring:/monitoring:ro
+      - ./docker/resolv.conf:/etc/resolv.conf:ro
     environment:
       NODE_ROLE: master
       KEEPALIVED_PRIORITY: "110"
@@ -81,6 +94,8 @@ services:
       dockerfile: docker/DockerFile
     container_name: fw2
     hostname: fw2
+    ports:
+      - "5001:5001"
     privileged: true
     cap_add:
       - NET_ADMIN
@@ -90,16 +105,23 @@ services:
       net.ipv4.ip_forward: 1
       net.ipv6.conf.all.forwarding: 1
       net.ipv4.ip_nonlocal_bind: 1
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     networks:
       mgmt_net:
         ipv4_address: 172.20.0.12
+        ipv6_address: fd00:20::12
       frontend_net:
         ipv4_address: 172.21.0.12
+        ipv6_address: fd00:21::12
       backend_net:
         ipv4_address: 172.22.0.12
+        ipv6_address: fd00:22::12
     volumes:
       - fw2_logs:/var/log
       - ./tests:/tests:ro
+      - ./docker/resolv.conf:/etc/resolv.conf:ro
     environment:
       NODE_ROLE: backup
       KEEPALIVED_PRIORITY: "100"
@@ -120,6 +142,8 @@ services:
       dockerfile: docker/DockerFile
     container_name: fw3
     hostname: fw3
+    ports:
+      - "5002:5002"
     privileged: true
     cap_add:
       - NET_ADMIN
@@ -129,16 +153,23 @@ services:
       net.ipv4.ip_forward: 1
       net.ipv6.conf.all.forwarding: 1
       net.ipv4.ip_nonlocal_bind: 1
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     networks:
       mgmt_net:
         ipv4_address: 172.20.0.13
+        ipv6_address: fd00:20::13
       frontend_net:
         ipv4_address: 172.21.0.13
+        ipv6_address: fd00:21::13
       backend_net:
         ipv4_address: 172.22.0.13
+        ipv6_address: fd00:22::13
     volumes:
       - fw3_logs:/var/log
       - ./tests:/tests:ro
+      - ./docker/resolv.conf:/etc/resolv.conf:ro
     environment:
       NODE_ROLE: backup
       KEEPALIVED_PRIORITY: "90"
@@ -165,6 +196,7 @@ services:
     networks:
       frontend_net:
         ipv4_address: 172.21.0.21
+        ipv6_address: fd00:21::21
     volumes:
       - ./tests:/tests:ro
       - test_results:/test_results
@@ -172,6 +204,8 @@ services:
       FW1_IP: 172.21.0.11
       FW2_IP: 172.21.0.12
       FW3_IP: 172.21.0.13
+      BACKEND_SUBNET: "172.22.0.0/24"
+      FRONTEND_VIP: "172.21.0.100"
     depends_on:
       fw1:
         condition: service_healthy
@@ -189,6 +223,7 @@ services:
     networks:
       frontend_net:
         ipv4_address: 172.21.0.22
+        ipv6_address: fd00:21::22
     volumes:
       - ./tests:/tests:ro
       - test_results:/test_results
@@ -213,6 +248,7 @@ services:
     networks:
       frontend_net:
         ipv4_address: 172.21.0.23
+        ipv6_address: fd00:21::23
     volumes:
       - ./tests:/tests:ro
       - test_results:/test_results
@@ -229,9 +265,12 @@ services:
     image: nginx:alpine
     container_name: server1
     hostname: server1
+    cap_add:
+      - NET_ADMIN
     networks:
       backend_net:
         ipv4_address: 172.22.0.31
+        ipv6_address: fd00:22::31
     volumes:
       - ./docker/nginx/server1.html:/usr/share/nginx/html/index.html:ro
     healthcheck:
@@ -245,11 +284,15 @@ services:
     image: nginx:alpine
     container_name: server2
     hostname: server2
+    cap_add:
+      - NET_ADMIN
     networks:
       backend_net:
         ipv4_address: 172.22.0.32
+        ipv6_address: fd00:22::32
     volumes:
       - ./docker/nginx/server2.html:/usr/share/nginx/html/index.html:ro
+      - ./docker/nginx/server2-multiport.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/"]
       interval: 10s
@@ -269,10 +312,13 @@ services:
     networks:
       mgmt_net:
         ipv4_address: 172.20.0.99
+        ipv6_address: fd00:20::99
       frontend_net:
         ipv4_address: 172.21.0.99
+        ipv6_address: fd00:21::99
       backend_net:
         ipv4_address: 172.22.0.99
+        ipv6_address: fd00:22::99
     volumes:
       - ./tests:/tests
       - test_results:/test_results
@@ -283,7 +329,7 @@ services:
       FW1_FRONTEND_IP: 172.21.0.11
       FW2_FRONTEND_IP: 172.21.0.12
       FW3_FRONTEND_IP: 172.21.0.13
-      VIRTUAL_IP: 172.20.0.100
+      VIRTUAL_IP: 172.21.0.100
       SERVER1_IP: 172.22.0.31
       SERVER2_IP: 172.22.0.32
       REPORT_DIR: /test_results
@@ -307,24 +353,3 @@ services:
         --html=/test_results/report.html
         --self-contained-html
         -v
-
-  traffic-gen:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.client
-    container_name: traffic-gen
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    networks:
-      frontend_net:
-    command: >
-      sh -c "while true; do
-        nc -w1 172.21.0.11 9999 || true;
-        nc -w1 172.21.0.11 12345 || true;
-        timeout 2 ping -f 172.21.0.11 || true;
-        sleep 3;
-      done"
-    depends_on:
-      - fw1
-
