@@ -9,6 +9,7 @@ sys.path.insert(0, str(ANALYZERS_DIR))
 
 import conntrack_analyzer  # noqa: E402
 import log_analyzer  # noqa: E402
+import bandwidth_analyzer  # noqa: E402
 
 
 app = Flask(__name__)
@@ -26,6 +27,10 @@ def get_blocked():
 def get_connections():
     return jsonify(conntrack_analyzer.analyze_connections())
 
+
+@app.route("/api/bandwidth")
+def get_bandwidth():
+    return jsonify(bandwidth_analyzer.get_bandwidth())
 
 @app.route("/api/health")
 def get_health():

@@ -40,6 +40,7 @@ table inet filter {
         iif lo accept
 
         tcp dport 22 accept
+        tcp dport 5000 accept
         ip protocol icmp accept
         ip6 nexthdr icmpv6 accept
         ip protocol vrrp accept

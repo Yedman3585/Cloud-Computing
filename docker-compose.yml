@@ -72,6 +72,7 @@ services:
         ipv6_address: fd00:22::11
     volumes:
       - fw1_logs:/var/log
+      - ./monitoring:/monitoring:ro
       - ./tests:/tests:ro
       - ./docker/resolv.conf:/etc/resolv.conf:ro
     environment:
@@ -353,3 +354,28 @@ services:
         --html=/test_results/report.html
         --self-contained-html
         -v
+  traffic-gen:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.client
+    container_name: traffic-gen
+    hostname: traffic-gen
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    networks:
+      frontend_net:
+        ipv4_address: 172.21.0.29
+        ipv6_address: fd00:21::29
+    command: >
+      sh -c "while true; do
+        nc -w1 172.21.0.11 9999 || true;
+        nc -w1 172.21.0.11 12345 || true;
+        timeout 2 ping -f 172.21.0.11 || true;
+        sleep 3;
+      done"
+    depends_on:
+      fw1:
+        condition: service_healthy
+    restart: unless-stopped
+
