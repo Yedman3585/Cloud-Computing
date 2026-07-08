@@ -155,6 +155,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
+  become: false
   vars:
     report_dir: "{{ lookup('env', 'REPORT_DIR') | default('test_results', true) }}"
   tasks:

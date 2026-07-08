@@ -319,40 +319,28 @@ The work happened in two phases.
 
 ### Phase 1: individual implementation
 
-In the first phase, each team member worked on a separate part of the planned
-firewall lab. The goal was to create the main building blocks before connecting
-them into one complete system. These building blocks were: Docker topology,
-firewall and high-availability behavior, Ansible automation, monitoring,
-testing, and CI/CD structure.
+In the first phase, each team member worked on a separate part of the planned firewall lab. The goal was to create the main building blocks before connecting them into one complete system. These building blocks included Docker topology, firewall and high-availability behavior, Ansible automation, monitoring, testing, and CI/CD structure.
 
-At this stage, the project was not yet one fully repeatable end-to-end lab.
-Different parts could still have different assumptions about container names,
-IP addresses, network routes, firewall rules, service startup, or test commands.
-This is why the later integration phase was necessary.
+At this stage, the project was not yet a fully repeatable end-to-end lab. Different parts could still have different assumptions about container names, IP addresses, network routes, firewall rules, service startup, or test commands. Therefore, the later integration phase was necessary.
 
-| Member | Name | Initial responsibility | Concrete result from this phase |
-| Member 1 | Iliyas | Firewall and high-availability behavior | Worked on the firewall/HA concept: Keepalived/VRRP behavior, VIP ownership, failover order, and the firewall behavior that later had to be deployed and proven with real nftables output. |
-| Member 2 | Said | Docker Compose runtime and test environment | Prepared the Docker Compose lab with firewall containers, frontend clients, backend servers, separated management/frontend/backend networks, health checks, and the base environment needed for repeatable local tests. |
-| Member 3 | Shahzod | CI/CD and Delivery Structure | Design and improve the CI/CD workflow, define the Gitea/GitLab-based repository structure, and support overall project organization. Validate the final project version to ensure system reliability and successful deployment. |
-| Member 4 | Aisana | Monitoring, logging, and dashboard support | Worked on monitoring scripts, metric collection, logs, dashboard-related files, and visibility into firewall activity, health state, and failover behavior. |
-| Member 5 | Yedige Mussabayev | Ansible deployment and integration structure | Built the Ansible side: inventory, group variables, roles, custom inventory validation, rule-driven nftables templating, Keepalived and conntrackd deployment, test playbook orchestration, and verification/documentation commands. |
+| Member   | Name              | Initial Responsibility                       | Concrete Result from Phase 1                                                                                                                                                                                                          |
+| -------- | ----------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Member 1 | Iliyas            | Firewall and high-availability behavior      | Developed the firewall/HA concept, including Keepalived/VRRP behavior, VIP ownership, failover order, and firewall behavior that was later deployed and verified using nftables output.                                               |
+| Member 2 | Said              | Docker Compose runtime and test environment  | Prepared the Docker Compose lab environment with firewall containers, frontend clients, backend servers, separated management/frontend/backend networks, health checks, and the base environment required for repeatable local tests. |
+| Member 3 | Shahzod           | CI/CD and Delivery Structure                 | Designed and improved the CI/CD workflow, defined the Gitea/GitLab repository structure, supported project organization, and validated the final project version to ensure reliable deployment.                                       |
+| Member 4 | Aisana            | Monitoring, logging, and dashboard support   | Developed monitoring scripts, metric collection, logging components, dashboard-related files, and visibility into firewall activity, health status, and failover behavior.                                                            |
+| Member 5 | Yedige Mussabayev | Ansible deployment and integration structure | Built the Ansible automation layer, including inventory, group variables, roles, inventory validation, nftables templating, Keepalived and conntrackd deployment, test playbook orchestration, and verification commands.             |
 
-The Ansible part was broad because it became the connection layer between
-several other parts of the project. Docker provided the containers and networks,
-the firewall/HA work defined the expected behavior, monitoring needed deployed
-services and live data, and automated tests needed a repeatable deployment
-state. The Ansible implementation connected these areas by turning inventory
-and variables into the actual running configuration inside the containers.
+The Ansible part was broad because it became the connection layer between several parts of the project. Docker provided the containers and networks, firewall/HA work defined the expected behavior, monitoring required deployed services and live data, and automated tests required a repeatable deployment state.
 
-The main output of Phase 1 was therefore not a final polished project yet, but a
-set of working parts that could be integrated:
+The main output of Phase 1 was therefore not a final polished project yet, but a set of working components that could later be integrated:
 
-- Docker Compose described where the lab components run.
-- Firewall/HA work described what the firewall cluster must do.
-- Ansible described how the configuration is deployed repeatably.
-- Monitoring described how runtime behavior can be observed.
-- Tests described how correct behavior can be proven automatically.
-- CI/CD described how validation can be repeated outside one developer machine.
+- Docker Compose defined where the lab components run.
+- Firewall/HA work defined the expected firewall cluster behavior.
+- Ansible provided repeatable deployment and configuration management.
+- Monitoring provided runtime visibility.
+- Tests provided automatic verification of correct behavior.
+- CI/CD enabled repeatable validation outside a single developer machine.
 
 ### Phase 2: integration and corrections after consultations
 
