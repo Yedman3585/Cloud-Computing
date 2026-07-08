@@ -11,6 +11,14 @@ exclude_paths:
   - "**/__pycache__/"
   - "ansible/roles/*/molecule/*/.molecule/"
 
+# These exceptions are deliberate for the Docker firewall lab:
+# - shared cluster variables are consumed by several roles, so not every variable
+#   can carry the current role prefix;
+# - a few container compatibility checks intentionally use shell/command because
+#   the target containers do not run systemd and may start without Python.
+skip_list:
+  - var-naming[no-role-prefix]
+  - command-instead-of-module
+
 warn_list:
   - experimental
-
