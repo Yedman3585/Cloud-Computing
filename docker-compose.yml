@@ -1,41 +1,49 @@
+version: "3.8"
+
 networks:
   mgmt_net:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: br-mgmt
+    enable_ipv6: true
     ipam:
       config:
         - subnet: 172.20.0.0/24
           gateway: 172.20.0.1
+        - subnet: fd00:20::/64
 
   frontend_net:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: br-frontend
+    enable_ipv6: true
     ipam:
       config:
         - subnet: 172.21.0.0/24
           gateway: 172.21.0.1
+        - subnet: fd00:21::/64
 
   backend_net:
     driver: bridge
     driver_opts:
       com.docker.network.bridge.name: br-backend
+    enable_ipv6: true
     ipam:
       config:
         - subnet: 172.22.0.0/24
           gateway: 172.22.0.1
+        - subnet: fd00:22::/64
 
 volumes:
   fw1_logs:
   fw2_logs:
   fw3_logs:
   test_results:
+  gitea_data:
+  gitea_runner_data:
 
 services:
   fw1:
-    ports:
-      - "5000:5000"
     build:
       context: .
       dockerfile: docker/DockerFile
@@ -50,17 +58,25 @@ services:
       net.ipv4.ip_forward: 1
       net.ipv6.conf.all.forwarding: 1
       net.ipv4.ip_nonlocal_bind: 1
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+    ports:
+      - "5000:5000"
     networks:
       mgmt_net:
         ipv4_address: 172.20.0.11
+        ipv6_address: fd00:20::11
       frontend_net:
         ipv4_address: 172.21.0.11
+        ipv6_address: fd00:21::11
       backend_net:
         ipv4_address: 172.22.0.11
+        ipv6_address: fd00:22::11
     volumes:
       - fw1_logs:/var/log
       - ./tests:/tests:ro
-      - ./monitoring:/monitoring:ro
+      - ./docker/resolv.conf:/etc/resolv.conf:ro
     environment:
       NODE_ROLE: master
       KEEPALIVED_PRIORITY: "110"
@@ -90,16 +106,23 @@ services:
       net.ipv4.ip_forward: 1
       net.ipv6.conf.all.forwarding: 1
       net.ipv4.ip_nonlocal_bind: 1
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     networks:
       mgmt_net:
         ipv4_address: 172.20.0.12
+        ipv6_address: fd00:20::12
       frontend_net:
         ipv4_address: 172.21.0.12
+        ipv6_address: fd00:21::12
       backend_net:
         ipv4_address: 172.22.0.12
+        ipv6_address: fd00:22::12
     volumes:
       - fw2_logs:/var/log
       - ./tests:/tests:ro
+      - ./docker/resolv.conf:/etc/resolv.conf:ro
     environment:
       NODE_ROLE: backup
       KEEPALIVED_PRIORITY: "100"
@@ -129,16 +152,23 @@ services:
       net.ipv4.ip_forward: 1
       net.ipv6.conf.all.forwarding: 1
       net.ipv4.ip_nonlocal_bind: 1
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     networks:
       mgmt_net:
         ipv4_address: 172.20.0.13
+        ipv6_address: fd00:20::13
       frontend_net:
         ipv4_address: 172.21.0.13
+        ipv6_address: fd00:21::13
       backend_net:
         ipv4_address: 172.22.0.13
+        ipv6_address: fd00:22::13
     volumes:
       - fw3_logs:/var/log
       - ./tests:/tests:ro
+      - ./docker/resolv.conf:/etc/resolv.conf:ro
     environment:
       NODE_ROLE: backup
       KEEPALIVED_PRIORITY: "90"
@@ -165,13 +195,13 @@ services:
     networks:
       frontend_net:
         ipv4_address: 172.21.0.21
+        ipv6_address: fd00:21::21
     volumes:
       - ./tests:/tests:ro
       - test_results:/test_results
     environment:
-      FW1_IP: 172.21.0.11
-      FW2_IP: 172.21.0.12
-      FW3_IP: 172.21.0.13
+      BACKEND_SUBNET: "172.22.0.0/24"
+      FRONTEND_VIP: "172.21.0.100"
     depends_on:
       fw1:
         condition: service_healthy
@@ -189,13 +219,13 @@ services:
     networks:
       frontend_net:
         ipv4_address: 172.21.0.22
+        ipv6_address: fd00:21::22
     volumes:
       - ./tests:/tests:ro
       - test_results:/test_results
     environment:
-      FW1_IP: 172.21.0.11
-      FW2_IP: 172.21.0.12
-      FW3_IP: 172.21.0.13
+      BACKEND_SUBNET: "172.22.0.0/24"
+      FRONTEND_VIP: "172.21.0.100"
     depends_on:
       fw1:
         condition: service_healthy
@@ -213,13 +243,13 @@ services:
     networks:
       frontend_net:
         ipv4_address: 172.21.0.23
+        ipv6_address: fd00:21::23
     volumes:
       - ./tests:/tests:ro
       - test_results:/test_results
     environment:
-      FW1_IP: 172.21.0.11
-      FW2_IP: 172.21.0.12
-      FW3_IP: 172.21.0.13
+      BACKEND_SUBNET: "172.22.0.0/24"
+      FRONTEND_VIP: "172.21.0.100"
     depends_on:
       fw1:
         condition: service_healthy
@@ -232,6 +262,7 @@ services:
     networks:
       backend_net:
         ipv4_address: 172.22.0.31
+        ipv6_address: fd00:22::31
     volumes:
       - ./docker/nginx/server1.html:/usr/share/nginx/html/index.html:ro
     healthcheck:
@@ -248,8 +279,10 @@ services:
     networks:
       backend_net:
         ipv4_address: 172.22.0.32
+        ipv6_address: fd00:22::32
     volumes:
       - ./docker/nginx/server2.html:/usr/share/nginx/html/index.html:ro
+      - ./docker/nginx/server2-multiport.conf:/etc/nginx/conf.d/default.conf:ro
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost/"]
       interval: 10s
@@ -257,74 +290,67 @@ services:
       retries: 3
     restart: unless-stopped
 
-  test_runner:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.client
-    container_name: test_runner
-    hostname: test_runner
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
+  gitea:
+    image: gitea/gitea:latest
+    container_name: gitea
+    hostname: gitea
+    restart: unless-stopped
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__server__DOMAIN=localhost
+      - GITEA__server__ROOT_URL=http://localhost:3000
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__actions__ENABLED=true
+      - GITEA__service__DISABLE_REGISTRATION=false
+    ports:
+      - "3000:3000"
+      - "2222:22"
+    volumes:
+      - gitea_data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     networks:
       mgmt_net:
-        ipv4_address: 172.20.0.99
-      frontend_net:
-        ipv4_address: 172.21.0.99
-      backend_net:
-        ipv4_address: 172.22.0.99
-    volumes:
-      - ./tests:/tests
-      - test_results:/test_results
-    environment:
-      FW1_MGMT_IP: 172.20.0.11
-      FW2_MGMT_IP: 172.20.0.12
-      FW3_MGMT_IP: 172.20.0.13
-      FW1_FRONTEND_IP: 172.21.0.11
-      FW2_FRONTEND_IP: 172.21.0.12
-      FW3_FRONTEND_IP: 172.21.0.13
-      VIRTUAL_IP: 172.20.0.100
-      SERVER1_IP: 172.22.0.31
-      SERVER2_IP: 172.22.0.32
-      REPORT_DIR: /test_results
-    depends_on:
-      fw1:
-        condition: service_healthy
-      fw2:
-        condition: service_healthy
-      fw3:
-        condition: service_healthy
-      server1:
-        condition: service_healthy
-      server2:
-        condition: service_healthy
-    profiles:
-      - testing
-    command: >
-      pytest /tests
-        --json-report
-        --json-report-file=/test_results/pytest.json
-        --html=/test_results/report.html
-        --self-contained-html
-        -v
+        ipv4_address: 172.20.0.50
 
-  traffic-gen:
-    build:
-      context: .
-      dockerfile: docker/Dockerfile.client
-    container_name: traffic-gen
-    cap_add:
-      - NET_ADMIN
-      - NET_RAW
-    networks:
-      frontend_net:
-    command: >
-      sh -c "while true; do
-        nc -w1 172.21.0.11 9999 || true;
-        nc -w1 172.21.0.11 12345 || true;
-        timeout 2 ping -f 172.21.0.11 || true;
-        sleep 3;
-      done"
+  gitea-runner:
+    image: gitea/act_runner:latest
+    container_name: gitea-runner
+    hostname: gitea-runner
+    restart: unless-stopped
     depends_on:
-      - fw1
+      - gitea
+    environment:
+      - GITEA_INSTANCE_URL=http://172.20.0.50:3000
+      - GITEA_RUNNER_NAME=firewall-runner
+      - GITEA_RUNNER_LABELS=ubuntu-latest:docker://node:18-bullseye
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - gitea_runner_data:/data
+    privileged: true
+    networks:
+      mgmt_net:
+        ipv4_address: 172.20.0.51
+
+traffic-gen:
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.client
+  container_name: traffic-gen
+  cap_add:
+    - NET_ADMIN
+    - NET_RAW
+  networks:
+    frontend_net:
+  command: >
+    sh -c "while true; do
+      nc -w1 172.21.0.11 9999 || true;
+      nc -w1 172.21.0.11 12345 || true;
+      timeout 2 ping -f 172.21.0.11 || true;
+      sleep 3;
+    done"
+  depends_on:
+    - fw1
 
