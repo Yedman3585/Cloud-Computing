@@ -4,3 +4,6 @@ conntrackd_sync_mode: NOTRACK
 conntrackd_port: 3780
 conntrackd_commit_timeout: 1800
 conntrackd_purge_timeout: 60
+conntrackd_service_mode: service
+conntrackd_socket_path: /var/run/conntrackd.ctl
+conntrackd_lock_path: /var/lock/conntrack.lock

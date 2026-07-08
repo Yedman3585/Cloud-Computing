@@ -12,7 +12,7 @@
         firewall_hostvars: "{{ hostvars }}"
         firewall_objects: "{{ firewall_objects }}"
         firewall_rules: "{{ firewall_rules }}"
-        keepalived_cluster: "{{ keepalived_cluster }}"
+        keepalived_vrrp_instances: "{{ keepalived_vrrp_instances }}"
         required_firewall_count: "{{ firewall_required_node_count }}"
       run_once: true
       delegate_to: localhost
@@ -29,3 +29,10 @@
     - firewall
     - keepalived
     - conntrackd
+
+- name: Configure routing through the firewall cluster VIPs
+  hosts: test_clients:backend_servers
+  become: true
+  gather_facts: false
+  roles:
+    - routing
