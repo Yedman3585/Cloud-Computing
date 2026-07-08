@@ -2,11 +2,7 @@
 keepalived_service_mode: service
 keepalived_cluster:
   name: default_cluster
-  instance_name: VI_1
-  interface: eth0
-  virtual_router_id: null
   advert_int: 1
   auth_pass: changeme
-  vip_ipv4: null
-  vip_ipv6: null
   enable_ipv6_vip: false
+keepalived_vrrp_instances: []

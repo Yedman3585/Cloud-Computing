@@ -21,8 +21,14 @@ RUN pip3 install --break-system-packages \
     scapy \
     requests \
     pytest \
-    pytest-html
+    pytest-html \
+    pytest-json-report
+
+COPY docker/entrypoint-client.sh /entrypoint-client.sh
+RUN sed -i 's/\r$//' /entrypoint-client.sh \
+    && chmod +x /entrypoint-client.sh
 
 WORKDIR /tests
 
+ENTRYPOINT ["/entrypoint-client.sh"]
 CMD ["tail", "-f", "/dev/null"]

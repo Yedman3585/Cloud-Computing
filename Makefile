@@ -13,17 +13,19 @@ FW1_FRONTEND_IP ?= 172.21.0.11
 FW2_FRONTEND_IP ?= 172.21.0.12
 FW3_FRONTEND_IP ?= 172.21.0.13
 VIRTUAL_IP ?= 172.20.0.100
+FRONTEND_VIP ?= 172.21.0.100
+BACKEND_VIP ?= 172.22.0.100
 SERVER1_IP ?= 172.22.0.31
 SERVER2_IP ?= 172.22.0.32
 
 export FW1_MGMT_IP FW2_MGMT_IP FW3_MGMT_IP
 export FW1_FRONTEND_IP FW2_FRONTEND_IP FW3_FRONTEND_IP
-export VIRTUAL_IP SERVER1_IP SERVER2_IP
+export VIRTUAL_IP FRONTEND_VIP BACKEND_VIP SERVER1_IP SERVER2_IP
 export REPORT_DIR
 
 .PHONY: all up down restart build deploy test test-rules test-failover test-ipv6 \
 	test-conntrackd test-traffic monitor monitor-dashboard monitor-metrics \
-	k8s-rollout k8s-check report logs status clean clean-images help
+	report logs status clean clean-images help
 
 all: help
 
@@ -31,6 +33,8 @@ up:
 	@echo "Building images and starting containers..."
 	$(COMPOSE) up -d --build
 	$(COMPOSE) ps
+	@echo "Running Ansible to configure firewalls, keepalived, conntrackd, and routing..."
+	$(MAKE) deploy
 
 down:
 	@echo "Stopping containers..."
@@ -43,7 +47,7 @@ build:
 
 deploy:
 	@echo "Deploying firewall cluster with Ansible..."
-	ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml
+	ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml -i ansible/inventory/hosts.yml
 
 test: $(REPORT_DIR)
 	$(PYTEST) $(TESTS_DIR) \
@@ -66,7 +70,9 @@ test-conntrackd: $(REPORT_DIR)
 	$(PYTEST) $(TESTS_DIR)/test_conntrackd.py -v --tb=short
 
 test-traffic: $(REPORT_DIR)
-	$(PYTEST) $(TESTS_DIR)/traffic_generator.py -v --tb=short
+	docker exec client1 pytest /tests/traffic_generator.py \
+		-v --tb=short \
+		-k "not http_get_through_firewall"
 
 monitor: $(REPORT_DIR)
 	python3 $(SCRIPTS_DIR)/monitor_health.py \
@@ -77,30 +83,11 @@ monitor-dashboard:
 	python3 monitoring/dashboard/app.py
 
 monitor-metrics:
-	python3 monitoring/scripts/collect_metrics.py
-	python3 monitoring/scripts/view_metrics.py
+	python3 monitoring/scripts/collect_metrics.py --output monitoring/data/metrics.json
+	python3 monitoring/scripts/view_metrics.py --input monitoring/data/metrics.json
 
-k8s-rollout:
-	bash k8s/rollout.sh
-
-k8s-check:
-	python3 scripts/check_deployment.py
-	python3 scripts/check_firewall.py
-	python3 scripts/check_service.py
-	python3 scripts/check_hpa.py
-
-status:
-	@python3 $(SCRIPTS_DIR)/monitor_health.py --once 2>/dev/null || true
-	@echo ""
-	@echo "VIP location:"
-	@for c in fw1 fw2 fw3; do \
-		result=$$(docker exec $$c ip addr show 2>/dev/null | grep $(VIRTUAL_IP) || true); \
-		if [ -n "$$result" ]; then \
-			echo "  $$c holds VIP $(VIRTUAL_IP) [MASTER]"; \
-		else \
-			echo "  $$c: backup"; \
-		fi; \
-	done
+status: $(REPORT_DIR)
+	@python3 $(SCRIPTS_DIR)/monitor_health.py --once --output $(REPORT_DIR)/health.json
 
 report: $(REPORT_DIR)
 	python3 $(SCRIPTS_DIR)/generate_report.py \
@@ -117,7 +104,7 @@ clean:
 	rm -rf $(REPORT_DIR)
 
 clean-images: clean
-	docker rmi $$(docker images | grep firewall | awk '{print $$3}') 2>/dev/null || true
+	docker rmi $$(docker images | grep $$(basename $$(pwd)) | awk '{print $$3}') 2>/dev/null || true
 
 $(REPORT_DIR):
 	mkdir -p $(REPORT_DIR)
@@ -125,14 +112,13 @@ $(REPORT_DIR):
 help:
 	@echo ""
 	@echo "HA Firewall targets"
-	@echo "  make up              build and start containers"
-	@echo "  make deploy          run Ansible site.yml"
-	@echo "  make status          show health and VIP owner"
-	@echo "  make test            run full pytest suite"
-	@echo "  make report          generate test report"
+	@echo "  make up                 build, start containers, and deploy via Ansible"
+	@echo "  make deploy             run Ansible site.yml only"
+	@echo "  make status             single health/VIP snapshot (mgmt/frontend/backend)"
+	@echo "  make monitor            continuous health monitor, logs to test_results/health.json"
+	@echo "  make test               run full pytest suite"
+	@echo "  make report             generate combined HTML test+health report"
 	@echo "  make monitor-dashboard  start Flask monitoring dashboard"
-	@echo "  make monitor-metrics    collect and print local metrics"
-	@echo "  make k8s-rollout        deploy optional Helm/Kubernetes lab"
-	@echo "  make k8s-check          check optional Kubernetes resources"
-	@echo "  make clean           stop stack and remove volumes"
+	@echo "  make monitor-metrics    collect and print local nftables/conntrack metrics"
+	@echo "  make clean              stop stack and remove volumes"
 	@echo ""

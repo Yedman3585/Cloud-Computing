@@ -40,7 +40,6 @@ table inet filter {
         iif lo accept
 
         tcp dport 22 accept
-        tcp dport 5000 accept
         ip protocol icmp accept
         ip6 nexthdr icmpv6 accept
         ip protocol vrrp accept
@@ -60,6 +59,13 @@ table inet filter {
 EOF
 else
     echo "[entrypoint] Preserving existing nftables ruleset"
+fi
+
+# If keepalived was already configured by a previous Ansible run, mark it
+# for autostart so supervisord brings it up immediately on container boot,
+# without requiring Ansible to run again first.
+if [ -s /etc/keepalived/keepalived.conf ]; then
+    sed -i 's/^autostart=false/autostart=true/' /etc/supervisor/conf.d/supervisord.conf
 fi
 
 # shellcheck disable=SC2145

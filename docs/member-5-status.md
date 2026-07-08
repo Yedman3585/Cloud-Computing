@@ -104,7 +104,7 @@ The `keepalived` role renders VRRP configuration for failover.
 
 The `conntrackd` role renders connection state synchronization configuration.
 
-Keepalived cluster-level settings are stored in `keepalived_cluster` instead of being loose global variables. This keeps values like `virtual_router_id`, VIPs, and VRRP interface attached to a specific firewall cluster.
+Keepalived cluster-level settings are stored in `keepalived_cluster` instead of being loose global variables.
 
 ### nftables Integration
 

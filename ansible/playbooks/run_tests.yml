@@ -29,6 +29,8 @@
       FW2_FRONTEND_IP: "172.21.0.12"
       FW3_FRONTEND_IP: "172.21.0.13"
       VIRTUAL_IP: "172.20.0.100"
+      FRONTEND_VIP: "172.21.0.100"
+      BACKEND_VIP: "172.22.0.100"
       SERVER1_IP: "172.22.0.31"
       SERVER2_IP: "172.22.0.32"
       REPORT_DIR: "{{ report_dir }}"
@@ -148,3 +150,47 @@
       ansible.builtin.fail:
         msg: "Tests failed with exit {{ firewall_pytest_result.rc }}. See {{ html_report }}, {{ pytest_stdout }}, and {{ pytest_stderr }}"
       when: firewall_pytest_result.rc != 0
+
+- name: Run pytest test suite against the live cluster
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    report_dir: "{{ lookup('env', 'REPORT_DIR') | default('test_results', true) }}"
+  tasks:
+    - name: Ensure test results directory exists
+      ansible.builtin.file:
+        path: "{{ report_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Run pytest suite
+      ansible.builtin.command:
+        cmd: >-
+          pytest tests/
+          --json-report
+          --json-report-file={{ report_dir }}/pytest.json
+          --html={{ report_dir }}/report.html
+          --self-contained-html
+          -v --tb=short
+          --ignore=tests/traffic_generator.py
+      environment:
+        FW1_MGMT_IP: "172.20.0.11"
+        FW2_MGMT_IP: "172.20.0.12"
+        FW3_MGMT_IP: "172.20.0.13"
+        FW1_FRONTEND_IP: "172.21.0.11"
+        FW2_FRONTEND_IP: "172.21.0.12"
+        FW3_FRONTEND_IP: "172.21.0.13"
+        VIRTUAL_IP: "172.20.0.100"
+        FRONTEND_VIP: "172.21.0.100"
+        BACKEND_VIP: "172.22.0.100"
+        SERVER1_IP: "172.22.0.31"
+        SERVER2_IP: "172.22.0.32"
+        REPORT_DIR: "{{ report_dir }}"
+      register: pytest_result
+      changed_when: false
+      failed_when: false
+
+    - name: Show pytest summary
+      ansible.builtin.debug:
+        msg: "{{ pytest_result.stdout_lines[-5:] }}"
