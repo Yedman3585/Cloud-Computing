@@ -330,13 +330,6 @@ def tg():
 class TestScapyTraffic:
     """Tests using raw packet crafting via scapy."""
 
-    pytestmark = pytest.mark.skip(
-        reason=(
-            "Host-side raw packet tests require host routing into Docker bridge "
-            "networks. Use the traffic generator manually from a client container "
-            "for full packet-level validation."
-        )
-    )
 
     @pytest.mark.parametrize("fw_ip", ALL_FW)
     def test_icmp_ping_via_scapy(self, fw_ip):
