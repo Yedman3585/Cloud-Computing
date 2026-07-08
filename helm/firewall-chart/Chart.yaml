@@ -1,6 +1,0 @@
-apiVersion: v2
-name: firewall-chart
-description: Helm chart for the Group 05 high-availability firewall lab
-type: application
-version: 0.1.0
-appVersion: "1.0.0"
