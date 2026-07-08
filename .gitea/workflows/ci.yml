@@ -1,0 +1,149 @@
+﻿name: firewall-lab-ci
+
+on:
+  push:
+    branches: [main, master, final, lastrun]
+  pull_request:
+    branches: [main, master, final, lastrun]
+  workflow_dispatch:
+
+env:
+  FIREWALL_IMAGE_LOCAL: firewall-lab-firewall:ci
+  CLIENT_IMAGE_LOCAL: firewall-lab-client:ci
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Python and Ansible dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Validate Docker Compose file
+        run: docker compose config --quiet
+
+      - name: Validate Ansible inventory and syntax
+        run: |
+          ANSIBLE_CONFIG=ansible/ansible.cfg ansible-inventory -i ansible/inventory/hosts.yml --graph
+          ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml --syntax-check -i ansible/inventory/hosts.yml
+
+      - name: Run Ansible lint
+        run: ansible-lint ansible/
+
+      - name: Compile Python modules
+        run: python -m compileall -q ansible/library scripts monitoring tests
+
+  build-images:
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build firewall OCI image
+        run: docker build -f docker/DockerFile -t "$FIREWALL_IMAGE_LOCAL" .
+
+      - name: Build client/test OCI image
+        run: docker build -f docker/Dockerfile.client -t "$CLIENT_IMAGE_LOCAL" .
+
+      - name: List built images
+        run: docker images | grep -E 'firewall-lab-(firewall|client)'
+
+  publish-images:
+    runs-on: ubuntu-latest
+    needs: build-images
+    if: ${{ vars.PUBLISH_OCI_IMAGES == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check registry settings
+        run: |
+          test -n "${{ vars.GITEA_REGISTRY }}"
+          test -n "${{ vars.GITEA_IMAGE_NAMESPACE }}"
+          test -n "${{ secrets.GITEA_REGISTRY_USER }}"
+          test -n "${{ secrets.GITEA_REGISTRY_TOKEN }}"
+
+      - name: Login to Gitea OCI registry
+        run: |
+          echo "${{ secrets.GITEA_REGISTRY_TOKEN }}" | \
+            docker login "${{ vars.GITEA_REGISTRY }}" \
+              --username "${{ secrets.GITEA_REGISTRY_USER }}" \
+              --password-stdin
+
+      - name: Build and push firewall image
+        run: |
+          short_sha="$(git rev-parse --short HEAD)"
+          image="${{ vars.GITEA_REGISTRY }}/${{ vars.GITEA_IMAGE_NAMESPACE }}/firewall-lab-firewall"
+          docker build -f docker/DockerFile -t "$image:$short_sha" -t "$image:latest" .
+          docker push "$image:$short_sha"
+          docker push "$image:latest"
+
+      - name: Build and push client/test image
+        run: |
+          short_sha="$(git rev-parse --short HEAD)"
+          image="${{ vars.GITEA_REGISTRY }}/${{ vars.GITEA_IMAGE_NAMESPACE }}/firewall-lab-client"
+          docker build -f docker/Dockerfile.client -t "$image:$short_sha" -t "$image:latest" .
+          docker push "$image:$short_sha"
+          docker push "$image:latest"
+
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: build-images
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Build and start Docker Compose lab
+        run: docker compose up -d --build
+
+      - name: Wait for firewall and backend health checks
+        run: |
+          for c in fw1 fw2 fw3 server1 server2; do
+            for i in $(seq 1 24); do
+              status=$(docker inspect --format '{{.State.Health.Status}}' "$c" 2>/dev/null || echo missing)
+              echo "$c: $status"
+              if [ "$status" = healthy ]; then break; fi
+              sleep 5
+            done
+            test "$status" = healthy
+          done
+
+      - name: Deploy firewall lab with Ansible
+        run: |
+          ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml -i ansible/inventory/hosts.yml
+
+      - name: Run integration tests
+        run: |
+          ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/run_tests.yml
+        env:
+          FW1_MGMT_IP: "172.20.0.11"
+          FW2_MGMT_IP: "172.20.0.12"
+          FW3_MGMT_IP: "172.20.0.13"
+          FW1_FRONTEND_IP: "172.21.0.11"
+          FW2_FRONTEND_IP: "172.21.0.12"
+          FW3_FRONTEND_IP: "172.21.0.13"
+          VIRTUAL_IP: "172.20.0.100"
+          FRONTEND_VIP: "172.21.0.100"
+          BACKEND_VIP: "172.22.0.100"
+          SERVER1_IP: "172.22.0.31"
+          SERVER2_IP: "172.22.0.32"
+          REPORT_DIR: "test_results"
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: firewall-lab-test-results
+          path: test_results/
+
+      - name: Tear down lab
+        if: always()
+        run: docker compose down -v --remove-orphans
