@@ -1,6 +1,6 @@
-﻿name: firewall-lab-ci
+name: firewall-lab-ci
 
-on:
+"on":
   push:
     branches: [main, master, final, lastrun]
   pull_request:

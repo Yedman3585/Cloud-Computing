@@ -378,4 +378,3 @@ services:
       fw1:
         condition: service_healthy
     restart: unless-stopped
-
