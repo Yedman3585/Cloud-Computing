@@ -1489,6 +1489,9 @@ external CI runner with Docker access. The verified run is `#11` on `main`, with
 overall status `Success`, total duration `6m54s`, and one saved artifact named
 `firewall-lab-test-results`.
 
+Verified Gitea Actions run:
+https://gitea.com/yedman3585/20261_group_05/actions/runs/670013
+
 The workflow contains four jobs:
 
 - `validate`: passed. It installs Python and Ansible dependencies, validates
