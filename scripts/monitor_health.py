@@ -63,7 +63,11 @@ class FirewallMonitor:
         output_file:    Optional path to write JSON log
     """
 
-    VIRTUAL_IP = os.environ.get("VIRTUAL_IP", "172.20.0.100")
+    VIPS = {
+        "mgmt": os.environ.get("VIRTUAL_IP", "172.20.0.100"),
+        "frontend": os.environ.get("FRONTEND_VIP", "172.21.0.100"),
+        "backend": os.environ.get("BACKEND_VIP", "172.22.0.100"),
+    }
     FW_MGMT_IPS = {
         "fw1": os.environ.get("FW1_MGMT_IP", "172.20.0.11"),
         "fw2": os.environ.get("FW2_MGMT_IP", "172.20.0.12"),
@@ -126,9 +130,10 @@ class FirewallMonitor:
         return rc == 0
 
     def _check_vip(self, container: str) -> bool:
-        """Returns True if this container holds the VIP."""
-        rc, out = self._run(container, f"ip addr show | grep {self.VIRTUAL_IP}")
-        return rc == 0 and self.VIRTUAL_IP in out
+        """Returns True if this container holds the (mgmt) VIP."""
+        vip = self.VIPS["mgmt"]
+        rc, out = self._run(container, f"ip addr show | grep {vip}")
+        return rc == 0 and vip in out
 
     def _check_keepalived(self, container: str) -> bool:
         """Returns True if keepalived process is running."""
