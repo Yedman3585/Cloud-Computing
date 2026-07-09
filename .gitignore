@@ -1,6 +1,8 @@
 .idea/
 .venv/
 .venv_linux/
+.ansible/
+.venv_ci/
 venv/
 .env
 __pycache__/

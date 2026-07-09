@@ -23,7 +23,8 @@ jobs:
           . .venv_ci/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          ansible-galaxy collection install -r ansible/requirements.yml
+          mkdir -p .ansible/collections
+          ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
 
       - name: Validate Docker Compose file
         run: docker compose config --quiet
@@ -31,13 +32,19 @@ jobs:
       - name: Validate Ansible inventory and syntax
         run: |
           . .venv_ci/bin/activate
-          ANSIBLE_CONFIG=ansible/ansible.cfg ansible-inventory -i ansible/inventory/hosts.yml --graph
-          ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml --syntax-check -i ansible/inventory/hosts.yml
+          ANSIBLE_COLLECTIONS_PATH=.ansible/collections \
+            ANSIBLE_CONFIG=ansible/ansible.cfg \
+            ansible-inventory -i ansible/inventory/hosts.yml --graph
+          ANSIBLE_COLLECTIONS_PATH=.ansible/collections \
+            ANSIBLE_CONFIG=ansible/ansible.cfg \
+            ansible-playbook ansible/playbooks/site.yml \
+              --syntax-check \
+              -i ansible/inventory/hosts.yml
 
       - name: Run Ansible lint
         run: |
           . .venv_ci/bin/activate
-          ANSIBLE_CONFIG=ansible/ansible.cfg ansible-lint
+          ANSIBLE_COLLECTIONS_PATH=.ansible/collections ANSIBLE_CONFIG=ansible/ansible.cfg ansible-lint
 
       - name: Compile Python modules
         run: |
@@ -108,7 +115,8 @@ jobs:
           . .venv_ci/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
-          ansible-galaxy collection install -r ansible/requirements.yml
+          mkdir -p .ansible/collections
+          ansible-galaxy collection install -r ansible/requirements.yml -p .ansible/collections
 
       - name: Build and start Docker Compose lab
         run: docker compose up -d --build
@@ -128,12 +136,17 @@ jobs:
       - name: Deploy firewall lab with Ansible
         run: |
           . .venv_ci/bin/activate
-          ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml -i ansible/inventory/hosts.yml
+          ANSIBLE_COLLECTIONS_PATH=.ansible/collections \
+            ANSIBLE_CONFIG=ansible/ansible.cfg \
+            ansible-playbook ansible/playbooks/site.yml \
+              -i ansible/inventory/hosts.yml
 
       - name: Run integration tests
         run: |
           . .venv_ci/bin/activate
-          ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/run_tests.yml
+          ANSIBLE_COLLECTIONS_PATH=.ansible/collections \
+            ANSIBLE_CONFIG=ansible/ansible.cfg \
+            ansible-playbook ansible/playbooks/run_tests.yml
         env:
           FW1_MGMT_IP: "172.20.0.11"
           FW2_MGMT_IP: "172.20.0.12"

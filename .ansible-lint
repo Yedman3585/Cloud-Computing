@@ -6,6 +6,8 @@ exclude_paths:
   - .git/
   - .venv/
   - .venv_linux/
+  - .venv_ci/
+  - .ansible/
   - .cache/
   - .molecule/
   - "**/__pycache__/"
