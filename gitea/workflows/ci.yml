@@ -184,12 +184,27 @@ jobs:
           docker exec fw1 nft list ruleset || true
           docker exec server2 ip route || true
           docker exec client1 ip route || true
-      - name: Upload test artifacts
-        uses: actions/upload-artifact@v4
+
+      - name: Archive generated test artifacts
         if: always()
+        run: |
+          if [ -d test_results ]; then
+            tar -czf firewall-lab-test-results.tar.gz test_results
+            ls -lh firewall-lab-test-results.tar.gz
+            find test_results -maxdepth 1 -type f -print
+          else
+            echo "No test_results directory was generated."
+          fi
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v3
+        if: always()
+        continue-on-error: true
         with:
           name: firewall-lab-test-results
-          path: test_results/
+          path: |
+            test_results/
+            firewall-lab-test-results.tar.gz
 
       - name: Tear down lab
         if: always()
