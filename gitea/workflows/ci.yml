@@ -10,7 +10,6 @@ name: firewall-lab-ci
 env:
   FIREWALL_IMAGE_LOCAL: firewall-lab-firewall:ci
   CLIENT_IMAGE_LOCAL: firewall-lab-client:ci
-  PYTHON_VENV: .venv_ci
 
 jobs:
   validate:
@@ -20,8 +19,8 @@ jobs:
 
       - name: Install Python and Ansible dependencies
         run: |
-          python -m venv "$PYTHON_VENV"
-          . "$PYTHON_VENV/bin/activate"
+          python -m venv .venv_ci
+          . .venv_ci/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           ansible-galaxy collection install -r ansible/requirements.yml
@@ -31,18 +30,18 @@ jobs:
 
       - name: Validate Ansible inventory and syntax
         run: |
-          . "$PYTHON_VENV/bin/activate"
+          . .venv_ci/bin/activate
           ANSIBLE_CONFIG=ansible/ansible.cfg ansible-inventory -i ansible/inventory/hosts.yml --graph
           ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml --syntax-check -i ansible/inventory/hosts.yml
 
       - name: Run Ansible lint
         run: |
-          . "$PYTHON_VENV/bin/activate"
+          . .venv_ci/bin/activate
           ANSIBLE_CONFIG=ansible/ansible.cfg ansible-lint
 
       - name: Compile Python modules
         run: |
-          . "$PYTHON_VENV/bin/activate"
+          . .venv_ci/bin/activate
           python -m compileall -q ansible/library scripts monitoring tests
 
   build-images:
@@ -105,8 +104,8 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m venv "$PYTHON_VENV"
-          . "$PYTHON_VENV/bin/activate"
+          python -m venv .venv_ci
+          . .venv_ci/bin/activate
           python -m pip install --upgrade pip
           python -m pip install -r requirements.txt
           ansible-galaxy collection install -r ansible/requirements.yml
@@ -128,12 +127,12 @@ jobs:
 
       - name: Deploy firewall lab with Ansible
         run: |
-          . "$PYTHON_VENV/bin/activate"
+          . .venv_ci/bin/activate
           ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/site.yml -i ansible/inventory/hosts.yml
 
       - name: Run integration tests
         run: |
-          . "$PYTHON_VENV/bin/activate"
+          . .venv_ci/bin/activate
           ANSIBLE_CONFIG=ansible/ansible.cfg ansible-playbook ansible/playbooks/run_tests.yml
         env:
           FW1_MGMT_IP: "172.20.0.11"
