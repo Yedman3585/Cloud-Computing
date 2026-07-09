@@ -43,8 +43,9 @@ test_results/pytest.stderr.log
 7. [Important Ansible Files](#7-important-ansible-files)
 8. [Firewall Rules And nftables Evidence](#8-firewall-rules-and-nftables-evidence)
 9. [Improvements After Review](#9-improvements-after-review)
-10. [AI Usage Documentation And References](#10-ai-usage-documentation-and-references)
-11. [Troubleshooting](#11-troubleshooting)
+10. [Gitea Actions Evidence](#10-gitea-actions-evidence)
+11. [AI Usage Documentation And References](#11-ai-usage-documentation-and-references)
+12. [Troubleshooting](#12-troubleshooting)
 
 ---
 
@@ -1073,7 +1074,7 @@ It performs:
 7. Docker Compose build/up
 8. Ansible deployment
 9. integration test playbook
-10. upload of `test_results/`
+10. archive and upload of `test_results/`
 
 The runner needs Docker access because the integration job starts containers.
 This is similar to GitLab CI, but written for Gitea Actions.
@@ -1081,10 +1082,15 @@ This is similar to GitLab CI, but written for Gitea Actions.
 The repository keeps the workflow only in the standard path that Gitea Actions
 detects: `.gitea/workflows/ci.yml`.
 
-Detailed setup steps for the Gitea instance, runner, registry variables, and
-optional Kubernetes rollout are documented in `docs/gitea-setup.md`.
+Detailed setup steps for the Gitea instance, runner, and registry variables are
+documented in `docs/gitea-setup.md`.
 
-Latest observed workflow parse check from 2026-07-06:
+After instructor review, the project no longer claims an unproven Kubernetes
+deployment path. Gitea is still used because it proves the CI/CD requirement for
+the verified delivery path: repository checkout, validation, image build, Docker
+Compose startup, Ansible deployment, integration tests, and saved test artifacts.
+
+Latest observed workflow structure check from 2026-07-09:
 
 ```text
 .gitea/workflows/ci.yml exists
@@ -1094,7 +1100,7 @@ jobs: validate, build-images, publish-images, integration-test
 validate_steps: 6
 build-images_steps: 4
 publish-images_steps: 5
-integration-test_steps: 8
+integration-test_steps: 10
 ```
 
 ---
@@ -1476,7 +1482,43 @@ or unproven production path.
 
 ---
 
-## 10. AI Usage Documentation And References
+## 10. Gitea Actions Evidence
+
+The final Gitea Actions run proves that the repository can be checked by an
+external CI runner with Docker access. The verified run is `#11` on `main`, with
+overall status `Success`, total duration `6m54s`, and one saved artifact named
+`firewall-lab-test-results`.
+
+The workflow contains four jobs:
+
+- `validate`: passed. It installs Python and Ansible dependencies, validates
+  Docker Compose, validates the Gitea Compose override, checks the Ansible
+  inventory and playbook syntax, runs ansible-lint, and compiles Python modules.
+- `build-images`: passed. It builds the firewall OCI image and the client/test
+  OCI image.
+- `publish-images`: skipped intentionally. It is controlled by registry
+  variables and secrets, so it only runs when OCI publishing is enabled for a
+  configured registry.
+- `integration-test`: passed. It starts the Docker Compose lab, waits for health
+  checks, deploys the firewall lab with Ansible, runs the integration tests,
+  archives generated test artifacts, uploads the artifact, and tears down the
+  lab.
+
+This is the practical Gitea proof for this project. Kubernetes was removed after
+review, but Gitea remains useful as the CI/CD system that automatically proves
+the Docker Compose and Ansible delivery path.
+
+![Gitea Actions success summary](docs/evidence/gitea-actions-success-summary.png)
+
+![Gitea Actions validate job](docs/evidence/gitea-actions-validate.png)
+
+![Gitea Actions build-images job](docs/evidence/gitea-actions-build-images.png)
+
+![Gitea Actions integration-test job](docs/evidence/gitea-actions-integration-test.png)
+
+---
+
+## 11. AI Usage Documentation And References
 
 AI tools were used during the project, but their use is documented separately
 for transparency. The code was not accepted only because an AI tool generated
@@ -1501,7 +1543,7 @@ configuration inside the Docker Compose environment.
 
 ---
 
-## 11. Troubleshooting
+## 12. Troubleshooting
 
 ### `docker compose exec -it fw1` fails
 
