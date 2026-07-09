@@ -86,7 +86,7 @@
 
         function renderBlocked(data) {
             const el = document.getElementById("blocked");
-            const entries = Object.entries(data || {});
+            const entries = Object.entries((data && data.blocked_ips) || data || {});
             if (!entries.length) { el.innerHTML = '<tr><td class="empty">no blocked traffic yet</td></tr>'; return; }
             entries.sort((a,b) => b[1]-a[1]);
             el.innerHTML = '<tr><th>Source IP</th><th class="num">Drops</th></tr>' +
