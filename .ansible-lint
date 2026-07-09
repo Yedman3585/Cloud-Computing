@@ -8,6 +8,7 @@ exclude_paths:
   - .venv_linux/
   - .venv_ci/
   - .ansible/
+  - docker-compose.gitea.yml
   - .cache/
   - .molecule/
   - "**/__pycache__/"
