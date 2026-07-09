@@ -3,27 +3,22 @@
 # Ensures traffic between the two networks transits the firewall cluster's
 # VIPs, so the firewall ruleset can actually be exercised end to end.
 
-- name: Bootstrap Python3 on minimal Alpine targets
-  # nginx:alpine ships no Python interpreter at all, so any normal Ansible
-  # module would fail before it even runs. The raw module is the one
-  # exception that works over a plain shell, with no Python required on
-  # the target, so we use it purely to install python3 once.
-  ansible.builtin.raw: command -v python3 >/dev/null 2>&1 || apk add --no-cache python3
+- name: Bootstrap Python3 and bash on minimal Alpine backend servers
+  # nginx:alpine ships without Python and bash. The raw module works before
+  # Python exists on the target, so it is the safest way to prepare these
+  # minimal backend containers in local runs and clean CI/Gitea runners.
+  ansible.builtin.raw: |
+    command -v python3 >/dev/null 2>&1 || apk add --no-cache python3
+    command -v bash >/dev/null 2>&1 || apk add --no-cache bash
   when: inventory_hostname in groups['backend_servers']
   changed_when: false
 
-- name: Ensure bash is present on Alpine backend servers
-  # The pytest helper run_in_container() always shells out via
-  # `docker exec <container> bash -c "..."`. Alpine's nginx image only
-  # ships /bin/sh by default, so without this, every pytest call against
-  # server1/server2 fails with exit code 126 ("bash not found").
-  become: true
-  ansible.builtin.package:
-    name: bash
-    state: present
+- name: Ensure iproute2 is present on Alpine backend servers
+  ansible.builtin.raw: command -v ip >/dev/null 2>&1 || apk add --no-cache iproute2
   when: inventory_hostname in groups['backend_servers']
+  changed_when: false
 
-- name: Ensure iproute2 is present (works for apk and apt targets alike)
+- name: Ensure iproute2 is present on Debian-based test clients
   become: true
   ansible.builtin.package:
     name: iproute2
@@ -32,6 +27,7 @@
   failed_when:
     - routing_iproute2_install is failed
     - "'Could not find a package' not in (routing_iproute2_install.msg | default(''))"
+  when: inventory_hostname in groups['test_clients']
 
 - name: Add route to backend network via the frontend VIP (test_clients)
   become: true
