@@ -1277,7 +1277,7 @@ large groups: Ansible-related changes and non-Ansible project integration change
 | Member | Name | Main area |
 | --- | --- | --- |
 | Member 3 | Shahzod | Final integration after feedback: repository cleanup, Gitea workflow direction, removal of unproven Kubernetes/Helm files, Docker Compose final structure, server2 multi-port proof for port-isolation tests, monitoring/dashboard connection, and shared high-availability polish around the playbook/Keepalived/conntrackd path. |
-| Member 5 | Yedige Mussabayev | Primary Ansible integration after feedback: inventory contract, `group_vars` firewall policy, nftables rendering/apply path, routing through VIPs, `run_tests.yml` orchestration, WSL/Debian Ansible checks, and documentation of the verification commands. The `site.yml`, Keepalived, and conntrackd integration path was treated as shared work with Shahzod because both members worked on that area during final polishing. |
+| Member 5 | Yedige Mussabayev | Primary Ansible integration after feedback: inventory contract, `group_vars` firewall policy, nftables rendering/apply path, routing through VIPs, `run_tests.yml` orchestration, WSL/Debian Ansible checks, and documentation of the verification commands. The `site.yml`, Keepalived, and conntrackd integration path was treated as shared work with Shahzod because both members worked on that area during final polishing. Evidence files: [Debian 13 Azure proof](docs/evidence/debian13-azure-proof.docx), [terminal transcript](docs/evidence/debian13-terminal-proof.txt). |
 
 The table below explains the overlapping files and final integration areas:
 
