@@ -76,23 +76,6 @@ session and lecture this semester and showed my progress weekly throughout —
 this can be checked against your own weekly notes. I'd ask that the timing of
 my pushes on their own not be used to reduce my score, given that context.
 
-## 5. Note on the routing files and Member 5
-
-I created the Ansible routing role and the accompanying configuration
-folder, and I sent that folder to the rest of the group, including Member 5,
-so the team could use it.
-
-I want to flag, in my own words and for my own record, that Member 5's
-individual report describes those routing files as work he created. From
-what I can tell, he took the folder I had already written, ran it past AI to
-reword/rewrite the description of it, and wrote it up as his own
-contribution. I don't think that's an accurate account of who actually
-created the routing files, and I want that noted here.
-
-This is my own account of the situation, written for my own records — I'm
-not asserting this is settled or proven, just documenting what I observed so
-there's a record of my side alongside Member 5's report.
-
 ## 6. Weekly participation and progress
 
 I participated in every practice session throughout the semester and showed
