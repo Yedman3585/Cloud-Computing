@@ -269,6 +269,42 @@ test_results/pytest.stdout.log
 test_results/pytest.stderr.log
 ```
 
+### 3.1 Gitea and Debian 13 Evidence
+
+The final delivery was also checked outside the local WSL workflow. I added this proof because the project requirement asks for an installable and testable result, not only source files.
+
+Gitea Actions proof:
+
+- Verified run: https://gitea.com/yedman3585/20261_group_05/actions/runs/670013
+- The workflow passed `validate`, `build-images`, and `integration-test`.
+- The run produced a test artifact named `firewall-lab-test-results`.
+
+![Gitea Actions success summary](docs/evidence/gitea-actions-success-summary.png)
+
+![Gitea Actions validate job](docs/evidence/gitea-actions-validate.png)
+
+![Gitea Actions integration test job](docs/evidence/gitea-actions-integration-test.png)
+
+Debian 13 Azure proof:
+
+- Azure VM: Debian 13 amd64 (`x86_64`)
+- Docker Engine: `29.6.1`
+- Docker Compose: `v5.3.1`
+- Repository cloned from Gitea at commit `e10265d`
+- Docker Compose startup, Ansible deployment, Ansible lint/checks and integration tests were executed on the VM
+- Full proof document: [docs/evidence/debian13-azure-proof.docx](docs/evidence/debian13-azure-proof.docx)
+- Raw terminal transcript: [docs/evidence/debian13-terminal-proof.txt](docs/evidence/debian13-terminal-proof.txt)
+
+![Azure Debian 13 VM overview](docs/evidence/azure-debian13-proof-01.png)
+
+![Azure Debian 13 VM properties](docs/evidence/azure-debian13-proof-04.png)
+
+![Debian 13 Docker and repository proof](docs/evidence/azure-debian13-proof-08.png)
+
+![Debian 13 Docker Compose lab proof](docs/evidence/azure-debian13-proof-10.png)
+
+![Debian 13 Ansible checks proof](docs/evidence/azure-debian13-proof-11.png)
+
 Final generated summary excerpt:
 
 ```text
