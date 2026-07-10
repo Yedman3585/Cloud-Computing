@@ -11,8 +11,9 @@ Ansible renders and applies real firewall rules, Keepalived owns and moves the
 VIPs, conntrackd runs, routes force client/server traffic through the firewall,
 and automated tests prove allowed traffic passes while blocked traffic fails.
 
-Latest local verification in this repository copy: 2026-07-06
+Latest verification evidence in this repository copy:
 
+- Local WSL/Docker verification: 2026-07-06
 - Docker Compose stack: started successfully
 - Ansible deployment: passed with `failed=0`
 - Full integration test playbook: passed
@@ -20,6 +21,11 @@ Latest local verification in this repository copy: 2026-07-06
 - VIP availability during the automated failover stress run: 65.5%
 - Recorded failover events during the failover tests: 11
 - Health monitor note: one transient split-brain snapshot was recorded during the forced failover/double-failure stress path; pytest assertions still passed and final VIP ownership returned to fw1
+- Gitea Actions verification: green run with validate, build-images, and integration-test jobs
+- Final Debian 13 amd64 verification: 2026-07-10 on an Azure VM running `Debian GNU/Linux 13.5` on `x86_64`
+- Docker on the Debian verification host: Docker Engine `29.6.1`, Docker Compose `v5.3.1`
+- Repository cloned from Gitea on the Debian verification host at commit `e10265d`
+- Debian verification result: Docker Compose start, Ansible deployment, nftables inspection, and `ansible/playbooks/run_tests.yml` all passed with `pytest exit: 0`
 
 Generated local report after tests:
 
@@ -35,15 +41,15 @@ test_results/pytest.stderr.log
 ## Table Of Contents
 
 1. [Installation](#1-installation)
-2. [Git Repository History And Team Contributions](#2-git-repository-history-and-team-contributions)
+2. [Git Repository History](#2-git-repository-history)
 3. [Testing And Verification](#3-testing-and-verification)
 4. [Infrastructure And Gitea](#4-infrastructure-and-gitea)
 5. [Environments](#5-environments)
-6. [Ansible Deployment](#6-ansible-deployment)
-7. [Important Ansible Files](#7-important-ansible-files)
-8. [Firewall Rules And nftables Evidence](#8-firewall-rules-and-nftables-evidence)
-9. [Improvements After Review](#9-improvements-after-review)
-10. [Gitea Actions Evidence](#10-gitea-actions-evidence)
+6. [Work Distribution And Team Contributions](#6-work-distribution-and-team-contributions)
+7. [Ansible Deployment](#7-ansible-deployment)
+8. [Important Ansible Files](#8-important-ansible-files)
+9. [Firewall Rules And nftables Evidence](#9-firewall-rules-and-nftables-evidence)
+10. [Improvements After Review](#10-improvements-after-review)
 11. [AI Usage Documentation And References](#11-ai-usage-documentation-and-references)
 12. [Troubleshooting](#12-troubleshooting)
 
@@ -307,65 +313,33 @@ pytest summary:
 85 passed, 11 skipped in 168.52s
 ```
 
+### 1.9 Debian 13 amd64 installation proof
+
+The installation path above was also verified on the announced target-style
+environment: a clean Azure VM running Debian 13 amd64 (`Debian GNU/Linux 13.5`,
+`x86_64`) with Docker installed from docker.com. The same repository was cloned,
+Docker Compose was started, Ansible deployed the firewall lab, nftables and
+Keepalived were inspected, and the full test playbook passed with `pytest exit: 0`.
+
+Proof artifacts:
+
+- Debian 13 Azure proof document with screenshots and explanations: [docs/evidence/debian13-azure-proof.docx](docs/evidence/debian13-azure-proof.docx)
+- Raw terminal transcript from the Debian 13 verification: [docs/evidence/debian13-terminal-proof.txt](docs/evidence/debian13-terminal-proof.txt)
+- Verified Gitea Actions run: [https://gitea.com/yedman3585/20261_group_05/actions/runs/670013](https://gitea.com/yedman3585/20261_group_05/actions/runs/670013)
+
 ---
 
-## 2. Git Repository History And Team Contributions
+## 2. Git Repository History
 
 The Git repository history should show regular, meaningful commits from the team.
-The README supports that history by documenting the work distribution: what was
-built individually first, and what was later connected or corrected after
-consultations. The actual chronological proof remains in GitLab commit history.
+The actual chronological proof remains in GitLab commit history. This README
+adds context for that history by explaining how the individual parts were built,
+connected, corrected after consultations, and finally verified.
 
-The work happened in two phases.
-
-### Phase 1: individual implementation
-
-In the first phase, each team member worked on a separate part of the planned
-firewall lab. The goal was to create the main building blocks before connecting
-them into one complete system. These building blocks were: Docker topology,
-firewall and high-availability behavior, Ansible automation, monitoring,
-testing, and CI/CD structure.
-
-At this stage, the project was not yet one fully repeatable end-to-end lab.
-Different parts could still have different assumptions about container names,
-IP addresses, network routes, firewall rules, service startup, or test commands.
-This is why the later integration phase was necessary.
-
-| Member | Name | Initial responsibility | Concrete result from this phase |
-| --- | --- | --- | --- |
-| Member 1 | Iliyas | Firewall and high-availability behavior | Worked on the firewall/HA concept: Keepalived/VRRP behavior, VIP ownership, failover order, and the firewall behavior that later had to be deployed and proven with real nftables output. |
-| Member 2 | Said | Docker Compose runtime and test environment | Prepared the Docker Compose lab with firewall containers, frontend clients, backend servers, separated management/frontend/backend networks, health checks, and the base environment needed for repeatable local tests. |
-| Member 3 | Shahzod | CI/CD and delivery structure | Worked on the CI/CD direction, Gitea/GitLab-style workflow ideas, repository structure, and the broader packaging direction so the project could later be downloaded, built, and checked by another person. |
-| Member 4 | Aisana | Monitoring, logging, and dashboard support | Worked on monitoring scripts, metric collection, logs, dashboard-related files, and visibility into firewall activity, health state, and failover behavior. |
-| Member 5 | Yedige Mussabayev | Ansible deployment and integration structure | Built the Ansible side: inventory, group variables, roles, custom inventory validation, rule-driven nftables templating, Keepalived and conntrackd deployment, routing orchestration, test playbook orchestration, and verification/documentation commands. |
-
-The Ansible part was broad because it became the connection layer between
-several other parts of the project. Docker provided the containers and networks,
-the firewall/HA work defined the expected behavior, monitoring needed deployed
-services and live data, and automated tests needed a repeatable deployment
-state. The Ansible implementation connected these areas by turning inventory
-and variables into the actual running configuration inside the containers.
-
-The main output of Phase 1 was therefore not a final polished project yet, but a
-set of working parts that could be integrated:
-
-- Docker Compose described where the lab components run.
-- Firewall/HA work described what the firewall cluster must do.
-- Ansible described how the configuration is deployed repeatably.
-- Monitoring described how runtime behavior can be observed.
-- Tests described how correct behavior can be proven automatically.
-- CI/CD described how validation can be repeated outside one developer machine.
-
-### Phase 2: integration and corrections after consultations
-
-After feedback during classes, the work became more about connecting the parts and
-proving the behavior. For this phase we separated the final changes into two
-large groups: Ansible-related changes and non-Ansible project integration changes.
-
-| Member | Name | Main area |
-| --- | --- | --- |
-| Member 3 | Shahzod | final integration after feedback: repository cleanup, Gitea workflow direction, removal of unproven Kubernetes/Helm files, Docker Compose final structure, server2 multi-port proof for port-isolation tests, monitoring/dashboard connection, and general final-project packaging outside the Ansible roles. |
-| Member 5 | Yedige Mussabayev | Ansible final integration after feedback: inventory contract, `site.yml` structure, `group_vars` firewall policy, `common` interface detection, `firewall` nftables rendering/apply path, Keepalived and conntrackd role integration, `routing` role through VIPs, `run_tests.yml` orchestration, WSL/Debian Ansible checks, and documentation of the verification commands. |
+The work distribution is kept as a separate section because the final project was
+not only a set of individual files. Several important tasks were integration
+work: connecting Docker Compose, Ansible, firewall rules, monitoring, automated
+tests, Gitea Actions, and the final Debian 13 installation proof.
 
 ---
 
@@ -1049,6 +1023,8 @@ The first run stores the hash; later runs report `Rules unchanged` or
 | `monitoring/alerts/telegram_bot.py` | Sends a single Telegram message (env-based secrets) |
 | `monitoring/alerts/alert_monitor.py` | Host-side watcher that alerts on blocked-IP events |
 
+---
+
 ## 4. Infrastructure And Gitea
 
 The infrastructure and CI/CD requirement is covered by a Gitea Actions workflow.
@@ -1102,6 +1078,43 @@ build-images_steps: 4
 publish-images_steps: 5
 integration-test_steps: 10
 ```
+
+### 4.1 Gitea Actions Evidence
+
+The final Gitea Actions run proves that the repository can be checked by an
+external CI runner with Docker access. The verified run is `#11` on `main`, with
+overall status `Success`, total duration `6m54s`, and one saved artifact named
+`firewall-lab-test-results`.
+
+Verified Gitea Actions run:
+https://gitea.com/yedman3585/20261_group_05/actions/runs/670013
+
+The workflow contains four jobs:
+
+- `validate`: passed. It installs Python and Ansible dependencies, validates
+  Docker Compose, validates the Gitea Compose override, checks the Ansible
+  inventory and playbook syntax, runs ansible-lint, and compiles Python modules.
+- `build-images`: passed. It builds the firewall OCI image and the client/test
+  OCI image.
+- `publish-images`: skipped intentionally. It is controlled by registry
+  variables and secrets, so it only runs when OCI publishing is enabled for a
+  configured registry.
+- `integration-test`: passed. It starts the Docker Compose lab, waits for health
+  checks, deploys the firewall lab with Ansible, runs the integration tests,
+  archives generated test artifacts, uploads the artifact, and tears down the
+  lab.
+
+This is the practical Gitea proof for this project. Kubernetes was removed after
+review, but Gitea remains useful as the CI/CD system that automatically proves
+the Docker Compose and Ansible delivery path.
+
+![Gitea Actions success summary](docs/evidence/gitea-actions-success-summary.png)
+
+![Gitea Actions validate job](docs/evidence/gitea-actions-validate.png)
+
+![Gitea Actions build-images job](docs/evidence/gitea-actions-build-images.png)
+
+![Gitea Actions integration-test job](docs/evidence/gitea-actions-integration-test.png)
 
 ---
 
@@ -1200,7 +1213,98 @@ make deploy
 
 ---
 
-## 6. Ansible Deployment
+## 6. Work Distribution And Team Contributions
+
+The work is documented in two implementation phases, followed by a final verification phase.
+
+### Phase 1: individual implementation
+
+In the first phase, each team member worked on a separate part of the planned
+firewall lab. The goal was to create the main building blocks before connecting
+them into one complete system. These building blocks were: Docker topology,
+firewall and high-availability behavior, Ansible automation, monitoring,
+testing, and CI/CD structure.
+
+At this stage, the project was not yet one fully repeatable end-to-end lab.
+Different parts could still have different assumptions about container names,
+IP addresses, network routes, firewall rules, service startup, or test commands.
+This is why the later integration phase was necessary.
+
+| Member | Name | Initial responsibility | Concrete result from this phase |
+| --- | --- | --- | --- |
+| Member 1 | Iliyas | Firewall and high-availability behavior | Worked on the firewall/HA concept: Keepalived/VRRP behavior, VIP ownership, failover order, and the firewall behavior that later had to be deployed and proven with real nftables output. |
+| Member 2 | Said | Docker Compose runtime and test environment | Prepared the Docker Compose lab with firewall containers, frontend clients, backend servers, separated management/frontend/backend networks, health checks, and the base environment needed for repeatable local tests. |
+| Member 3 | Shahzod | CI/CD and delivery structure | Worked on the CI/CD direction, Gitea/GitLab-style workflow ideas, repository structure, and the broader packaging direction so the project could later be downloaded, built, and checked by another person. |
+| Member 4 | Aisana | Monitoring, logging, and dashboard support | Worked on monitoring scripts, metric collection, logs, dashboard-related files, and visibility into firewall activity, health state, and failover behavior. |
+| Member 5 | Yedige Mussabayev | Ansible deployment and integration structure | Built the Ansible side: inventory, group variables, roles, custom inventory validation, rule-driven nftables templating, Keepalived and conntrackd deployment, routing orchestration, test playbook orchestration, and verification/documentation commands. |
+
+The Ansible part was broad because it became the connection layer between
+several other parts of the project. Docker provided the containers and networks,
+the firewall/HA work defined the expected behavior, monitoring needed deployed
+services and live data, and automated tests needed a repeatable deployment
+state. The Ansible implementation connected these areas by turning inventory
+and variables into the actual running configuration inside the containers.
+
+The main output of Phase 1 was therefore not a final polished project yet, but a
+set of working parts that could be integrated:
+
+- Docker Compose described where the lab components run.
+- Firewall/HA work described what the firewall cluster must do.
+- Ansible described how the configuration is deployed repeatably.
+- Monitoring described how runtime behavior can be observed.
+- Tests described how correct behavior can be proven automatically.
+- CI/CD described how validation can be repeated outside one developer machine.
+
+### Phase 2: integration and corrections after consultations
+
+After feedback during classes, the work became more about connecting the parts and
+proving the behavior. For this phase we separated the final changes into two
+large groups: Ansible-related changes and non-Ansible project integration changes.
+
+| Member | Name | Main area |
+| --- | --- | --- |
+| Member 3 | Shahzod | Final integration after feedback: repository cleanup, Gitea workflow direction, removal of unproven Kubernetes/Helm files, Docker Compose final structure, server2 multi-port proof for port-isolation tests, monitoring/dashboard connection, and shared high-availability polish around the playbook/Keepalived/conntrackd path. |
+| Member 5 | Yedige Mussabayev | Primary Ansible integration after feedback: inventory contract, `group_vars` firewall policy, nftables rendering/apply path, routing through VIPs, `run_tests.yml` orchestration, WSL/Debian Ansible checks, and documentation of the verification commands. The `site.yml`, Keepalived, and conntrackd integration path was treated as shared work with Shahzod because both members worked on that area during final polishing. |
+
+The final integration split is therefore descriptive, not a strict line-by-line
+ownership claim. A fair reading of the overlapping Ansible/HA work is about 40%
+Shahzod and 60% Yedige in the final integration phase:
+
+| Area | Shahzod contribution | Yedige contribution |
+| --- | --- | --- |
+| Shared playbook and HA path | Helped polish the final deployment path around `ansible/playbooks/site.yml`, Keepalived/VRRP behavior, conntrackd service integration, service startup assumptions, and the final repository packaging around those pieces. | Kept the Ansible orchestration structure consistent, connected the roles through inventory/group variables, and verified that the final playbook deployment works end to end. |
+| Files mainly connected to Shahzod's final polishing | `ansible/playbooks/site.yml` as shared deployment flow, `ansible/roles/keepalived/**` as shared HA behavior, `ansible/roles/conntrackd/**` as shared state-sync behavior, `ansible/roles/common/**` as shared runtime baseline, plus non-Ansible delivery files such as Docker Compose/Gitea/monitoring integration. | Reviewed and connected these same shared files from the Ansible deployment side so they worked with inventory variables, Docker container realities, and the final verification commands. |
+| Files mainly connected to Yedige's Ansible integration | Supported the final integration review where these files interacted with HA and Docker runtime behavior. | `ansible/ansible.cfg`, `ansible/requirements.yml`, `ansible/inventory/**`, `ansible/group_vars/**`, `ansible/library/**`, `ansible/roles/firewall/**`, `ansible/roles/routing/**`, `ansible/playbooks/run_tests.yml`, and the Ansible verification/documentation path. |
+
+### Final delivery verification
+
+After the implementation and integration phases, final delivery checks were also
+performed and documented. These checks are important because they prove that the
+project is not only working on one developer machine, but can be cloned and run
+again in a clean review-style environment.
+
+| Person | Final verification area | Evidence |
+| --- | --- | --- |
+| Yedige Mussabayev | Gitea Actions check | Mirrored the project to Gitea, ran the self-hosted Gitea runner with Docker access, and verified the green workflow run with validate, build-images, and integration-test jobs. |
+| Yedige Mussabayev | Azure Debian 13 installation check | Created a Debian 13 amd64 Azure VM, installed Docker from docker.com, cloned the repository from Gitea, started Docker Compose, deployed with Ansible, inspected nftables/Keepalived evidence, and ran the full test playbook successfully. |
+
+### Work distribution notes
+
+Commit [`9d4e7c5` (`finalize tested firewall lab delivery`)](https://gitlab.hof-university.de/cloud_computing_20261/20261_group_05/-/commit/9d4e7c538930521a79000f53eb1705b589b216c2)
+was committed from Yedige's account, but it includes Shahzod's final polishing
+and integration contribution. It is therefore documented here as a shared final
+integration/delivery commit, not as work belonging only to the person who
+uploaded it.
+
+For the Ansible part, this commit changed `ansible/group_vars/firewalls.yml` and
+`ansible/roles/routing/tasks/main.yml`. It did not change
+`ansible/playbooks/*.yml`, although the final playbook and HA path are still
+documented as shared integration work because Shahzod also worked around the
+playbook/Keepalived/conntrackd area during final polishing.
+
+---
+
+## 7. Ansible Deployment
 
 The main playbook is:
 
@@ -1254,7 +1358,7 @@ less meaningful.
 
 ---
 
-## 7. Important Ansible Files
+## 8. Important Ansible Files
 
 ### `ansible/group_vars/all.yml`
 
@@ -1340,7 +1444,7 @@ background health monitor, saves pytest stdout/stderr, generates
 
 ---
 
-## 8. Firewall Rules And nftables Evidence
+## 9. Firewall Rules And nftables Evidence
 
 After Docker Compose starts but before Ansible runs, `/etc/nftables.conf` may
 be minimal. That only proves the image can boot. It does not prove the project
@@ -1410,13 +1514,13 @@ nft list ruleset
 
 ---
 
-## 9. Improvements After Review
+## 10. Improvements After Review
 
 The first working versions had the correct general direction, but several
 parts were not strong enough for a firewall project demonstration. The main
 changes after consultation and team review were:
 
-### 9.1 nftables output changed from minimal to real rules
+### 10.1 nftables output changed from minimal to real rules
 
 Earlier, checking inside a firewall container could show almost empty chains
 with `policy accept`. That was weak because it looked like the firewall did
@@ -1431,27 +1535,27 @@ Current state:
 - generated rules use named sets from Ansible variables
 - `nft list ruleset` is now a meaningful proof command
 
-### 9.2 Rules moved into readable Ansible variables
+### 10.2 Rules moved into readable Ansible variables
 
 Firewall policy is now described in `ansible/group_vars/all.yml`, not buried
 only in a static nftables file. This addresses maintainability and readability.
 
-### 9.3 Inventory validation was added
+### 10.3 Inventory validation was added
 
 The custom module `inventory_validate.py` checks the contract before applying
 configuration. This prevents applying incomplete or inconsistent firewall data.
 
-### 9.4 Routing was connected to the firewall VIPs
+### 10.4 Routing was connected to the firewall VIPs
 
 Clients and servers now get routes through the cluster VIPs. This makes the
 traffic tests real: packets cross the firewall instead of bypassing it.
 
-### 9.5 Keepalived was extended to all networks
+### 10.5 Keepalived was extended to all networks
 
 There are three VRRP instances, one per network. All VIPs move together, which
 is what the lab needs for a real HA firewall path.
 
-### 9.6 conntrackd was connected and tested
+### 10.6 conntrackd was connected and tested
 
 conntrackd runs on the firewall nodes and the test suite checks process,
 configuration, socket, and sync activity. In the final version, the conntrackd
@@ -1459,7 +1563,7 @@ sync interface is derived from the detected management interface with a safe
 fallback instead of being only hard-coded. This makes the role more robust when
 Docker assigns interfaces in a different order.
 
-### 9.7 Alpine backend bootstrap was improved
+### 10.7 Alpine backend bootstrap was improved
 
 The routing role now bootstraps minimal Alpine backend containers more reliably
 by installing Python, bash, and iproute2 before applying routes. This matters
@@ -1467,57 +1571,18 @@ because normal Ansible modules require Python on the managed target, while the
 nginx Alpine image does not provide the same baseline as Debian-based firewall
 or client containers.
 
-### 9.8 Port-isolation proof was added
+### 10.8 Port-isolation proof was added
 
 `server2` listens on more than one port, but only allowed ports are reachable
 through the firewall. This closes the weak argument that a blocked port might
 simply be closed on the server.
 
-### 9.9 Kubernetes files were removed
+### 10.9 Kubernetes files were removed
 
 The project is an infrastructure component. After instructor discussion, the
 focus was kept on Docker Compose, Gitea workflow, Ansible deployment, and real
 firewall behavior. The old Kubernetes/Helm files were removed to avoid a fake
 or unproven production path.
-
----
-
-## 10. Gitea Actions Evidence
-
-The final Gitea Actions run proves that the repository can be checked by an
-external CI runner with Docker access. The verified run is `#11` on `main`, with
-overall status `Success`, total duration `6m54s`, and one saved artifact named
-`firewall-lab-test-results`.
-
-Verified Gitea Actions run:
-https://gitea.com/yedman3585/20261_group_05/actions/runs/670013
-
-The workflow contains four jobs:
-
-- `validate`: passed. It installs Python and Ansible dependencies, validates
-  Docker Compose, validates the Gitea Compose override, checks the Ansible
-  inventory and playbook syntax, runs ansible-lint, and compiles Python modules.
-- `build-images`: passed. It builds the firewall OCI image and the client/test
-  OCI image.
-- `publish-images`: skipped intentionally. It is controlled by registry
-  variables and secrets, so it only runs when OCI publishing is enabled for a
-  configured registry.
-- `integration-test`: passed. It starts the Docker Compose lab, waits for health
-  checks, deploys the firewall lab with Ansible, runs the integration tests,
-  archives generated test artifacts, uploads the artifact, and tears down the
-  lab.
-
-This is the practical Gitea proof for this project. Kubernetes was removed after
-review, but Gitea remains useful as the CI/CD system that automatically proves
-the Docker Compose and Ansible delivery path.
-
-![Gitea Actions success summary](docs/evidence/gitea-actions-success-summary.png)
-
-![Gitea Actions validate job](docs/evidence/gitea-actions-validate.png)
-
-![Gitea Actions build-images job](docs/evidence/gitea-actions-build-images.png)
-
-![Gitea Actions integration-test job](docs/evidence/gitea-actions-integration-test.png)
 
 ---
 
