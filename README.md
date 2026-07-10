@@ -341,6 +341,19 @@ not only a set of individual files. Several important tasks were integration
 work: connecting Docker Compose, Ansible, firewall rules, monitoring, automated
 tests, Gitea Actions, and the final Debian 13 installation proof.
 
+The GitLab branches also document the development process:
+
+| Branch | Purpose |
+| --- | --- |
+| `main` | Final delivery branch. It contains the cleaned, tested project version, final README, Gitea evidence, and Debian 13 proof artifacts. |
+| `oldmain` | Earlier complete project version before the final review-driven cleanup and proof updates. This branch is useful for comparing the first integrated version with the final delivery. |
+| `iliyas-nftables` | Personal/team branch for Member 1 firewall and nftables-related work. |
+| `said-testing` | Personal/team branch for Member 2 Docker/test environment work. |
+| `ci/cd-setup` | CI/CD setup branch used for workflow and delivery automation work. |
+| `monitoring-aisana` | Personal/team branch for Member 4 monitoring, dashboard, metrics, and logging work. |
+| `yedige-ansible` | Personal/team branch for Member 5 Ansible orchestration and integration work. |
+| `shahzod-final` | Shahzod's final integration/polishing branch before the final delivery was consolidated on `main`. |
+
 ---
 
 ## 3. Testing And Verification
@@ -1266,9 +1279,7 @@ large groups: Ansible-related changes and non-Ansible project integration change
 | Member 3 | Shahzod | Final integration after feedback: repository cleanup, Gitea workflow direction, removal of unproven Kubernetes/Helm files, Docker Compose final structure, server2 multi-port proof for port-isolation tests, monitoring/dashboard connection, and shared high-availability polish around the playbook/Keepalived/conntrackd path. |
 | Member 5 | Yedige Mussabayev | Primary Ansible integration after feedback: inventory contract, `group_vars` firewall policy, nftables rendering/apply path, routing through VIPs, `run_tests.yml` orchestration, WSL/Debian Ansible checks, and documentation of the verification commands. The `site.yml`, Keepalived, and conntrackd integration path was treated as shared work with Shahzod because both members worked on that area during final polishing. |
 
-The final integration split is therefore descriptive, not a strict line-by-line
-ownership claim. A fair reading of the overlapping Ansible/HA work is about 40%
-Shahzod and 60% Yedige in the final integration phase:
+The table below explains the overlapping files and final integration areas:
 
 | Area | Shahzod contribution | Yedige contribution |
 | --- | --- | --- |
