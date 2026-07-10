@@ -19,7 +19,7 @@ My main responsibilities were:
 - Configure Ansible to work with Docker Compose containers
 - Maintain the inventory and group variable structure used by the deployment
 - Connect the firewall, common, keepalived, conntrackd, and routing roles into one deployment playbook
-- Implement and finalize the routing role so traffic passes through the firewall cluster
+- Connect the routing role into the deployment workflow and verify that traffic passes through the firewall cluster
 - Create the Ansible playbook that runs the integration test suite and report generation
 - Run WSL/Linux Ansible syntax, lint, deployment, and integration-test checks
 - Help integrate teammate work into the final repository state
@@ -132,7 +132,6 @@ client3 failed=0
 
 ### 2.4 Routing Role
 
-I implemented and finalized the routing role.
 
 Files:
 
@@ -420,7 +419,7 @@ Relevant final integration commits include:
 | Separate member branches did not work as one complete system at first | Connected Docker Compose, Ansible inventory, roles, tests and reports into one workflow |
 | Ansible needed to manage Docker containers instead of normal VMs | Used Docker-compatible inventory and container-safe service handling |
 | Early firewall output could look too empty if Ansible deployment was not applied | Added real verification using `docker exec fw1 nft list ruleset` after deployment |
-| Routing could bypass the firewall path | Added and finalized the routing role through firewall VIPs |
+| Routing could bypass the firewall path | Connected and verified the routing role through firewall VIPs as part of the final Ansible deployment workflow |
 | Integration tests needed to run repeatably | Created `run_tests.yml` to automate pytest, health monitoring and report generation |
 | Generated reports needed to prove behavior, not just describe it | Added evidence from pytest, health monitor, VIP owners and nftables inspection |
 | AI usage had to be transparent | Added AI documentation links and course/reference sources in README |
